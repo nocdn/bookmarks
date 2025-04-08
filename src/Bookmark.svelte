@@ -56,7 +56,7 @@
 </script>
 
 <bookmark class="flex items-center px-0.5">
-  <a href={bookmark.url} class="flex items-center gap-2 mr-auto">
+  <a href={bookmark.url} class="flex items-center gap-2 mr-auto font-[450]">
     <img
       src={getFaviconUrl(bookmark.url)}
       alt="favicon"

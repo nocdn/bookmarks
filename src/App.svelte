@@ -194,7 +194,7 @@
     <Search
       size="15"
       strokeWidth={2.25}
-      class="text-gray-400 transition-colors duration-150"
+      class="text-gray-400 transition-colors duration-150 group-focus-within:text-blue-600"
     />
     <input
       type="text"
@@ -215,7 +215,9 @@
   {:else if fetchError}
     <p class="text-red-600">Error loading bookmarks: {fetchError}</p>
   {:else if bookmarks.length === 0 && !isCreating}
-    <p>No bookmarks found. Paste a URL and press Enter to add one.</p>
+    <p class="text-gray-600 font-[450]">
+      No bookmarks found. Paste a URL and press Enter to add one.
+    </p>
   {:else}
     {#if isCreating && !createError}
       <p>Adding bookmark...</p>
