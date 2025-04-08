@@ -1,0 +1,27 @@
+{
+  "name": "bookmarks",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "check": "svelte-check --tsconfig ./tsconfig.app.json && tsc -p tsconfig.node.json"
+  },
+  "devDependencies": {
+    "@sveltejs/vite-plugin-svelte": "^5.0.3",
+    "@tsconfig/svelte": "^5.0.4",
+    "svelte": "^5.25.8",
+    "svelte-check": "^4.1.5",
+    "tailwindcss-motion": "^1.1.0",
+    "typescript": "~5.7.3",
+    "vite": "^6.2.5"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.49.4",
+    "@tailwindcss/vite": "^4.1.3",
+    "lucide-svelte": "^0.487.0",
+    "tailwindcss": "^4.1.3"
+  }
+}
