@@ -4,14 +4,13 @@
   import { onMount } from "svelte";
   import { createClient } from "@supabase/supabase-js";
 
-  // Define a type for your bookmark for better safety
   interface BookmarkType {
     id: number;
     url: string;
     created_at: string;
     updated_at: string | null;
     comment: string | null;
-    folder: string | null; // Adjust type if 'folder' links to another table
+    folder: string | null;
     title: string;
   }
 
@@ -23,30 +22,35 @@
 
   let searchInputElement: HTMLInputElement;
   let searchInputValue: string = $state("");
-  // Use the specific type here
   let bookmarks: Array<BookmarkType> = $state([]);
   let editingBookmarks: boolean = $state(false);
-  let isLoading: boolean = $state(true); // Optional: for loading state
-  let isCreating: boolean = $state(false); // State for creation process
-  let fetchError: string | null = $state(null); // Optional: for error state
-  let createError: string | null = $state(null); // Optional: for creation error state
+  let isLoading: boolean = $state(true);
+  let isCreating: boolean = $state(false);
+  let fetchError: string | null = $state(null);
+  let createError: string | null = $state(null);
 
-  // --- Data Fetching ---
+  function decodeHtmlEntities(text: string): string {
+    if (typeof document !== "undefined") {
+      const textarea = document.createElement("textarea");
+      textarea.innerHTML = text;
+      return textarea.value;
+    }
+    return text; // Return original text if document is not available (SSR)
+  }
+
   async function fetchBookmarks() {
     isLoading = true;
     fetchError = null;
     try {
-      // Fetch newest first
       let { data, error } = await supabase
         .from("bookmarks")
         .select("*")
-        .order("created_at", { ascending: false }); // Order by creation date
+        .order("created_at", { ascending: false });
 
       if (error) {
         throw error;
       }
       bookmarks = data ?? [];
-      console.log("Bookmarks state updated:", bookmarks);
     } catch (error: any) {
       console.error("Failed to fetch bookmarks:", error);
       fetchError = error.message || "An unknown error occurred.";
@@ -56,9 +60,7 @@
     }
   }
 
-  // --- Data Creation ---
   async function createBookmark(url: string) {
-    // Ensure URL has a protocol
     if (!url.startsWith("http://") && !url.startsWith("https://")) {
       url = `https://${url}`;
     }
@@ -67,44 +69,49 @@
     createError = null;
 
     try {
-      // Fetch the page title
       let pageTitle = "";
       try {
-        // For local testing
-        const proxyUrl = `http://localhost:3000/fetch-title?url=${encodeURIComponent(url)}`;
+        const proxyUrl = `http://84.8.144.162:8030/api/fetch-title?url=${encodeURIComponent(url)}`;
         const response = await fetch(proxyUrl);
+
+        if (!response.ok) {
+          const errorData = await response
+            .json()
+            .catch(() => ({ detail: "Failed to parse error response" }));
+          throw new Error(
+            errorData.detail ||
+              `Proxy request failed with status: ${response.status}`
+          );
+        }
+
         const data = await response.json();
-        pageTitle = data.title || "";
-      } catch (fetchError) {
-        console.warn("Could not fetch page title:", fetchError);
-        // Fallback to URL-based title
+        pageTitle = data.title ? decodeHtmlEntities(data.title) : "";
+      } catch (fetchError: any) {
+        console.warn("Could not fetch or process page title:", fetchError);
+        createError = `Could not get title: ${fetchError.message}`;
         pageTitle = url.replace(/^https?:\/\//, "").replace(/^www\./, "");
         if (pageTitle.endsWith("/")) pageTitle = pageTitle.slice(0, -1);
       }
 
-      // Insert the new bookmark with the fetched title
-      const { data: newBookmarkData, error } = await supabase
+      const { data: newBookmarkData, error: insertError } = await supabase
         .from("bookmarks")
         .insert([{ url: url, title: pageTitle || "Untitled" }])
         .select()
         .single();
 
-      if (error) {
-        throw error;
+      if (insertError) {
+        throw insertError;
       }
 
       if (newBookmarkData) {
-        console.log("New bookmark created:", newBookmarkData);
-        // Prepend the new bookmark to the list for immediate UI update
         bookmarks = [newBookmarkData as BookmarkType, ...bookmarks];
-        searchInputValue = ""; // Clear input on success
+        searchInputValue = "";
       } else {
-        throw new Error("Bookmark created but no data returned."); // Should not happen with .select().single() unless RLS issue
+        throw new Error("Bookmark created but no data returned.");
       }
     } catch (error: any) {
       console.error("Failed to create bookmark:", error);
-      createError = error.message || "Failed to save bookmark.";
-      // Optionally check for specific errors like duplicate URL if you have constraints
+      createError = createError || error.message || "Failed to save bookmark.";
       if (
         error.message?.includes(
           "duplicate key value violates unique constraint"
@@ -117,10 +124,7 @@
     }
   }
 
-  // --- Data Deletion ---
   async function handleDelete(id: number) {
-    console.log("Attempting to delete bookmark with id", id);
-    // Optimistic UI update (optional but good UX)
     const originalBookmarks = [...bookmarks];
     bookmarks = bookmarks.filter((b) => b.id !== id);
 
@@ -128,34 +132,29 @@
       const { error } = await supabase.from("bookmarks").delete().match({ id });
 
       if (error) {
-        throw error; // Throw to be caught below
+        throw error;
       }
-      console.log("Bookmark deleted successfully", id);
     } catch (error: any) {
       console.error("Delete failed:", error);
-      // Revert optimistic update on error
       bookmarks = originalBookmarks;
-      // Optionally show an error message to the user
-      // createError = `Failed to delete: ${error.message}`; // Reusing createError might be confusing
     }
   }
 
-  // --- Event Handlers ---
   function handleSearchInputKeydown(event: KeyboardEvent) {
     if (event.key === "Enter") {
-      event.preventDefault(); // Prevent form submission if it were in a form
+      event.preventDefault();
       const value = searchInputValue.trim();
-      createBookmark(value);
+      if (value) {
+        createBookmark(value);
+      }
     }
   }
 
-  // --- Lifecycle ---
   onMount(() => {
-    searchInputElement.focus();
+    searchInputElement?.focus();
 
-    document.addEventListener("keydown", (event) => {
+    const handleGlobalKeydown = (event: KeyboardEvent) => {
       if (event.key === "/") {
-        // Avoid focusing if already focused or if inside an input/textarea
         if (
           document.activeElement !== searchInputElement &&
           !["input", "textarea"].includes(
@@ -163,13 +162,18 @@
           )
         ) {
           event.preventDefault();
-          searchInputElement.focus();
-          searchInputElement.select(); // Select existing text
+          searchInputElement?.focus();
+          searchInputElement?.select();
         }
       }
-    });
+    };
 
+    document.addEventListener("keydown", handleGlobalKeydown);
     fetchBookmarks();
+
+    return () => {
+      document.removeEventListener("keydown", handleGlobalKeydown);
+    };
   });
 </script>
 
@@ -213,7 +217,7 @@
   {:else if bookmarks.length === 0 && !isCreating}
     <p>No bookmarks found. Paste a URL and press Enter to add one.</p>
   {:else}
-    {#if isCreating}
+    {#if isCreating && !createError}
       <p>Adding bookmark...</p>
     {/if}
     <div class="flex flex-col gap-1.5">
