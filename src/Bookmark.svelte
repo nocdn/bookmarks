@@ -1,6 +1,7 @@
 <script lang="ts">
   import { Pencil, X } from "lucide-svelte";
   import { onMount } from "svelte";
+  import { on } from "svelte/events";
 
   let {
     bookmark,
@@ -31,7 +32,6 @@
       const dayOrdinal = getOrdinal(day);
       const monthName = date.toLocaleString("en-GB", { month: "long" });
       const year = date.getFullYear();
-      // Example format: 4th April 2025
       return `${dayOrdinal} ${monthName} ${year}`;
     } catch (e) {
       console.error("Error formatting date:", e);
@@ -46,10 +46,36 @@
   let id: string = bookmark.id;
   let dominantColor: string = bookmark.faviconColor || "black";
 
-  onMount(() => {});
+  let holdingOptionKey: boolean = $state(false);
+  let hoveringBookmark: boolean = $state(false);
+
+  onMount(() => {
+    const keydown = on(window, "keydown", (event) => {
+      if (event.key === "Alt") {
+        holdingOptionKey = true;
+      }
+    });
+
+    const keyup = on(window, "keyup", (event) => {
+      if (event.key === "Alt") {
+        holdingOptionKey = false;
+      }
+    });
+
+    return () => {
+      keydown();
+      keyup();
+    };
+  });
 </script>
 
-<bookmark class="flex items-center px-0.5">
+<bookmark
+  class="flex items-center px-0.5"
+  onmouseenter={() => (hoveringBookmark = true)}
+  onmouseleave={() => (hoveringBookmark = false)}
+  role="button"
+  tabindex="0"
+>
   <a href={bookmark.url} class="flex items-center gap-2 mr-auto font-[450]">
     <div
       class="color-dot"
@@ -64,7 +90,7 @@
       {formatUkDate(bookmark.created_at)}
     </span>
   </div>
-  {#if editing}
+  {#if editing || (holdingOptionKey && hoveringBookmark)}
     <div class="flex items-center gap-2 ml-4">
       <button
         title="Edit bookmark"
