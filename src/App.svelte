@@ -216,6 +216,33 @@
       document.removeEventListener("keydown", handleGlobalKeydown);
     };
   });
+
+  async function handleEdit(id: number, newTitle: string) {
+    // eagerly update the bookmarks array to show new title immediately
+    const originalBookmarks = [...bookmarks];
+    bookmarks = bookmarks.map((b) => {
+      if (b.id === id) {
+        return {
+          ...b,
+          title: newTitle,
+        };
+      }
+      return b;
+    });
+
+    try {
+      const { error } = await supabase
+        .from("bookmarks")
+        .update({ title: newTitle })
+        .eq("id", id);
+      if (error) {
+        throw error;
+      }
+    } catch (error: any) {
+      console.error("failed to update bookmark:", error);
+      bookmarks = originalBookmarks;
+    }
+  }
 </script>
 
 <main class="p-4 flex flex-col gap-3 font-jetbrains-mono">
@@ -273,6 +300,7 @@
           {bookmark}
           onDelete={handleDelete}
           editing={editingBookmarks}
+          onEdit={handleEdit}
         />
       {/each}
     </div>
