@@ -3,7 +3,6 @@
   import { onMount } from "svelte";
 
   let {
-    favicon = null,
     bookmark,
     editing = false,
     onDelete = () => {},
@@ -44,26 +43,19 @@
     return url.replace(/^https?:\/\//, "");
   }
 
-  function getFaviconUrl(url: string): string {
-    // Extract domain from URL
-    const domain = stripProtocol(url).split("/")[0];
-    // Use Google's favicon service
-    return `https://www.google.com/s2/favicons?domain=${domain}`;
-  }
-
   let id: string = bookmark.id;
-  console.log(id);
+  let dominantColor: string = bookmark.faviconColor || "black";
+
+  onMount(() => {});
 </script>
 
 <bookmark class="flex items-center px-0.5">
   <a href={bookmark.url} class="flex items-center gap-2 mr-auto font-[450]">
-    <img
-      src={getFaviconUrl(bookmark.url)}
-      alt="favicon"
-      width="14"
-      height="14"
-      class="inline-block"
-    />
+    <div
+      class="color-dot"
+      style="background-color: {dominantColor};"
+      title={stripProtocol(bookmark.url)}
+    ></div>
     {bookmark.title}
   </a>
   <div class="font-mono">
@@ -92,3 +84,13 @@
     </div>
   {/if}
 </bookmark>
+
+<style>
+  .color-dot {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    display: inline-block;
+    flex-shrink: 0;
+  }
+</style>

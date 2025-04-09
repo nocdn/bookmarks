@@ -71,6 +71,8 @@
 
     try {
       let pageTitle = "";
+      let faviconColor = "";
+      let faviconRgbCodeString = "";
       try {
         const proxyUrl = `http://84.8.144.162:8030/api/fetch-title?url=${encodeURIComponent(url)}`;
         const response = await fetch(proxyUrl);
@@ -87,6 +89,12 @@
 
         const data = await response.json();
         pageTitle = data.title ? decodeHtmlEntities(data.title) : "";
+        faviconColor = data.faviconColor || "black";
+        console.log("favicon color from db:", faviconColor);
+        faviconRgbCodeString = `rgb(${faviconColor[0]}, ${
+          faviconColor[1]
+        }, ${faviconColor[2]})`;
+        console.log("favicon rgb code:", faviconRgbCodeString);
       } catch (fetchError: any) {
         console.warn("could not fetch or process page title:", fetchError);
         createError = `could not get title: ${fetchError.message}`;
@@ -96,7 +104,13 @@
 
       const { data: newBookmarkData, error: insertError } = await supabase
         .from("bookmarks")
-        .insert([{ url: url, title: pageTitle || "Untitled" }])
+        .insert([
+          {
+            url: url,
+            title: pageTitle || "Untitled",
+            faviconColor: faviconRgbCodeString,
+          },
+        ])
         .select()
         .single();
 
