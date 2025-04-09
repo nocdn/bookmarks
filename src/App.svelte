@@ -217,7 +217,7 @@
     };
   });
 
-  async function handleEdit(id: number, newTitle: string) {
+  async function handleEditTitle(id: number, newTitle: string) {
     // eagerly update the bookmarks array to show new title immediately
     const originalBookmarks = [...bookmarks];
     bookmarks = bookmarks.map((b) => {
@@ -234,6 +234,33 @@
       const { error } = await supabase
         .from("bookmarks")
         .update({ title: newTitle })
+        .eq("id", id);
+      if (error) {
+        throw error;
+      }
+    } catch (error: any) {
+      console.error("failed to update bookmark:", error);
+      bookmarks = originalBookmarks;
+    }
+  }
+
+  async function handleEditUrl(id: number, newUrl: string) {
+    // eagerly update the bookmarks array to show new url immediately
+    const originalBookmarks = [...bookmarks];
+    bookmarks = bookmarks.map((b) => {
+      if (b.id === id) {
+        return {
+          ...b,
+          url: newUrl,
+        };
+      }
+      return b;
+    });
+
+    try {
+      const { error } = await supabase
+        .from("bookmarks")
+        .update({ url: newUrl })
         .eq("id", id);
       if (error) {
         throw error;
@@ -300,7 +327,8 @@
           {bookmark}
           onDelete={handleDelete}
           editing={editingBookmarks}
-          onEdit={handleEdit}
+          onEditTitle={handleEditTitle}
+          onEditUrl={handleEditUrl}
         />
       {/each}
     </div>

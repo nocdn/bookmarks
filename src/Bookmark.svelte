@@ -7,7 +7,8 @@
     bookmark,
     editing = false,
     onDelete = () => {},
-    onEdit = (id: string, newTitle: string) => {},
+    onEditTitle = (id: string, newTitle: string) => {},
+    onEditUrl = (id: string, newUrl: string) => {},
   } = $props();
 
   function getOrdinal(day: number): string {
@@ -77,7 +78,7 @@
   async function startEdit() {
     if (editingTitle) return; // prevent re-entry
 
-    newTitle = bookmark.title; // resrt input value to current title
+    newTitle = bookmark.title;
     editingTitle = true;
     await tick(); // wait for DOM update
 
@@ -114,6 +115,7 @@
 
   function cancelEdit() {
     editingTitle = false;
+    editingUrl = false;
     cleanupEditKeyListeners?.(); // clean up listeners
   }
 
@@ -122,10 +124,64 @@
 
     const newTitleTrimmed = newTitle.trim();
     if (newTitleTrimmed && newTitleTrimmed !== bookmark.title) {
-      onEdit(id, newTitleTrimmed);
+      onEditTitle(id, newTitleTrimmed);
     }
     editingTitle = false;
     cleanupEditKeyListeners?.();
+  }
+
+  function submitUrlEdit() {
+    if (!editingUrl) return; // prevent submit if not editing
+
+    const newUrlTrimmed = newUrl.trim();
+    if (newUrlTrimmed && newUrlTrimmed !== bookmark.url) {
+      onEditUrl(id, newUrlTrimmed);
+    }
+    editingUrl = false;
+    cleanupEditKeyListeners?.();
+  }
+
+  let editingUrl = $state(false);
+  let newUrl = $state(bookmark.url);
+  let urlEditingElement = $state<HTMLInputElement | null>(null);
+
+  async function startUrlEdit() {
+    if (editingTitle) cancelEdit(); // cancel other edit if active
+    if (editingUrl) return; // prevent re-entry
+
+    newUrl = bookmark.url;
+    editingUrl = true;
+    await tick(); // wait for DOM update
+
+    urlEditingElement?.focus(); // use optional chaining for safety
+    urlEditingElement?.select(); // select text for easy editing
+
+    // remove previous listeners if any (safety net)
+    cleanupEditKeyListeners?.();
+
+    // add listeners for Enter/Escape/Blur specific to editing mode
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Enter") {
+        event.preventDefault(); // prevent potential form submission
+        submitUrlEdit();
+      } else if (event.key === "Escape") {
+        cancelEdit();
+      }
+    };
+
+    const handleBlur = () => {
+      submitUrlEdit();
+    };
+
+    const unbindKeyDown = on(urlEditingElement!, "keydown", handleKeyDown);
+    const unbindBlur = on(urlEditingElement!, "blur", handleBlur);
+
+    // the cleanup function
+    cleanupEditKeyListeners = () => {
+      unbindKeyDown();
+      unbindBlur();
+      cleanupEditKeyListeners = null; // clear reference after cleanup
+    };
   }
 </script>
 
@@ -149,7 +205,7 @@
       type="text"
       bind:value={newTitle}
       bind:this={titleEditingElement}
-      class="flex-auto font-[450] bg-transparent outline-none ring-1 ring-gray-300 focus:ring-blue-500 rounded px-0.5 mr-auto"
+      class="flex-auto font-[450] bg-transparent focus:outline-blue-300 px-0.5 mr-auto"
       aria-label="Edit bookmark title"
       onclick={(e) => {
         e.stopPropagation();
@@ -158,7 +214,9 @@
   {:else}
     <a
       href={bookmark.url}
-      class="flex-auto font-[450] px-0.5 mr-auto truncate outline-none"
+      class="flex-auto font-[450] px-0.5 mr-auto truncate outline-none {holdingOptionKey
+        ? 'cursor-text'
+        : ''}"
       onclick={(e) => {
         if (holdingOptionKey) {
           e.preventDefault();
@@ -173,7 +231,31 @@
   {/if}
 
   <div class="font-mono text-sm ml-2 flex-shrink-0 hidden sm:inline">
-    <span class="text-gray-500">[{stripProtocol(bookmark.url)}]</span>
+    {#if editingUrl}
+      <input
+        type="text"
+        bind:value={newUrl}
+        bind:this={urlEditingElement}
+        class="text-gray-500 focus:outline-blue-300"
+        aria-label="Edit bookmark url"
+        onclick={(e) => {
+          e.stopPropagation();
+        }}
+      />
+    {:else}
+      <span
+        class="text-gray-500"
+        role="button"
+        tabindex="0"
+        onmousedown={(e) => {
+          e.stopPropagation();
+          e.preventDefault();
+          if (holdingOptionKey) {
+            startUrlEdit();
+          }
+        }}>[{stripProtocol(bookmark.url)}]</span
+      >
+    {/if}
     <span class="text-gray-400 font-semibold ml-2">
       {formatUkDate(bookmark.created_at)}
     </span>
@@ -181,18 +263,6 @@
 
   {#if editing || (holdingOptionKey && hoveringBookmark)}
     <div class="flex items-center gap-1 ml-2 flex-shrink-0 pl-1">
-      <button
-        title="Edit bookmark"
-        onclick={(e) => {
-          e.stopPropagation();
-          e.preventDefault();
-          startEdit();
-        }}
-        class="text-gray-500 hover:text-gray-700 border border-transparent hover:border-gray-300 p-1 rounded"
-        aria-label="Edit bookmark"
-      >
-        <Pencil size={14} />
-      </button>
       <button
         title="Delete bookmark"
         onmousedown={(e) => {
@@ -217,13 +287,5 @@
     border-radius: 50%;
     display: inline-block;
     flex-shrink: 0;
-  }
-  bookmark:focus {
-    outline: none;
-  }
-  bookmark:focus-visible {
-    outline: 2px solid blue;
-    outline-offset: 2px;
-    border-radius: 4px;
   }
 </style>
