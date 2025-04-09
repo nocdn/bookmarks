@@ -29,13 +29,14 @@
   let fetchError: string | null = $state(null);
   let createError: string | null = $state(null);
 
+  // helper to decode html entities
   function decodeHtmlEntities(text: string): string {
     if (typeof document !== "undefined") {
       const textarea = document.createElement("textarea");
       textarea.innerHTML = text;
       return textarea.value;
     }
-    return text; // Return original text if document is not available (SSR)
+    return text; // return original text if document not available (SSR)
   }
 
   async function fetchBookmarks() {
@@ -52,8 +53,8 @@
       }
       bookmarks = data ?? [];
     } catch (error: any) {
-      console.error("Failed to fetch bookmarks:", error);
-      fetchError = error.message || "An unknown error occurred.";
+      console.error("failed to fetch bookmarks:", error);
+      fetchError = error.message || "an unknown error occurred";
       bookmarks = [];
     } finally {
       isLoading = false;
@@ -77,18 +78,18 @@
         if (!response.ok) {
           const errorData = await response
             .json()
-            .catch(() => ({ detail: "Failed to parse error response" }));
+            .catch(() => ({ detail: "failed to parse error response" }));
           throw new Error(
             errorData.detail ||
-              `Proxy request failed with status: ${response.status}`
+              `proxy request failed with status: ${response.status}`
           );
         }
 
         const data = await response.json();
         pageTitle = data.title ? decodeHtmlEntities(data.title) : "";
       } catch (fetchError: any) {
-        console.warn("Could not fetch or process page title:", fetchError);
-        createError = `Could not get title: ${fetchError.message}`;
+        console.warn("could not fetch or process page title:", fetchError);
+        createError = `could not get title: ${fetchError.message}`;
         pageTitle = url.replace(/^https?:\/\//, "").replace(/^www\./, "");
         if (pageTitle.endsWith("/")) pageTitle = pageTitle.slice(0, -1);
       }
@@ -107,17 +108,17 @@
         bookmarks = [newBookmarkData as BookmarkType, ...bookmarks];
         searchInputValue = "";
       } else {
-        throw new Error("Bookmark created but no data returned.");
+        throw new Error("bookmark created but no data returned");
       }
     } catch (error: any) {
-      console.error("Failed to create bookmark:", error);
-      createError = createError || error.message || "Failed to save bookmark.";
+      console.error("failed to create bookmark:", error);
+      createError = createError || error.message || "failed to save bookmark";
       if (
         error.message?.includes(
           "duplicate key value violates unique constraint"
         )
       ) {
-        createError = "This URL has already been bookmarked.";
+        createError = "this url has already been bookmarked";
       }
     } finally {
       isCreating = false;
@@ -130,12 +131,11 @@
 
     try {
       const { error } = await supabase.from("bookmarks").delete().match({ id });
-
       if (error) {
         throw error;
       }
     } catch (error: any) {
-      console.error("Delete failed:", error);
+      console.error("delete failed:", error);
       bookmarks = originalBookmarks;
     }
   }
@@ -149,6 +149,33 @@
       }
     }
   }
+
+  // fuzzy match function to check if all characters in the pattern exist
+  // in the text (in order)
+  function fuzzyMatch(text: string, pattern: string): boolean {
+    if (!pattern) return true;
+    text = text.toLowerCase();
+    pattern = pattern.toLowerCase();
+    let j = 0;
+    for (let i = 0; i < text.length && j < pattern.length; i++) {
+      if (text[i] === pattern[j]) {
+        j++;
+      }
+    }
+    return j === pattern.length;
+  }
+
+  // reactively filter bookmarks based on search input
+  // by checking title and url fields
+  let filteredBookmarks = $derived(
+    searchInputValue.trim()
+      ? bookmarks.filter(
+          (b) =>
+            fuzzyMatch(b.title, searchInputValue) ||
+            fuzzyMatch(b.url, searchInputValue)
+        )
+      : bookmarks
+  );
 
   onMount(() => {
     searchInputElement?.focus();
@@ -183,10 +210,14 @@
     <button
       disabled={isCreating}
       onmousedown={() => (editingBookmarks = !editingBookmarks)}
-      class="ml-auto border border-gray-200 px-2.5 py-0.5 cursor-pointer hover:bg-gray-100
-      disabled:opacity-50 disabled:cursor-not-allowed"
-      >{#if editingBookmarks}FINISH{:else}MANAGE{/if}</button
+      class="ml-auto border border-gray-200 px-2.5 py-0.5 cursor-pointer hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
     >
+      {#if editingBookmarks}
+        FINISH
+      {:else}
+        MANAGE
+      {/if}
+    </button>
   </header>
   <search
     class="w-full flex items-center gap-3 border-[1.5px] border-gray-300 px-2.5 py-2 pl-3 mb-1 group"
@@ -223,7 +254,7 @@
       <p>Adding bookmark...</p>
     {/if}
     <div class="flex flex-col gap-1.5">
-      {#each bookmarks as bookmark (bookmark.id)}
+      {#each filteredBookmarks as bookmark (bookmark.id)}
         <Bookmark
           {bookmark}
           onDelete={handleDelete}
