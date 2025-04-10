@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { ArrowRight, Search } from "lucide-svelte";
+  import { ArrowRight, PlusCircle, Search } from "lucide-svelte";
   import Bookmark from "./Bookmark.svelte";
   import { onMount } from "svelte";
   import { createClient } from "@supabase/supabase-js";
@@ -28,6 +28,7 @@
   let isCreating: boolean = $state(false);
   let fetchError: string | null = $state(null);
   let createError: string | null = $state(null);
+  let isAddingMultiple = $state(false);
 
   // helper to decode html entities
   function decodeHtmlEntities(text: string): string {
@@ -136,6 +137,9 @@
       }
     } finally {
       isCreating = false;
+      if (isAddingMultiple) {
+        isAddingMultiple = false;
+      }
     }
   }
 
@@ -155,12 +159,23 @@
   }
 
   function handleSearchInputKeydown(event: KeyboardEvent) {
-    if (event.key === "Enter") {
+    if (event.key === "Enter" && !event.shiftKey) {
       event.preventDefault();
-      const value = searchInputValue.trim();
-      if (value) {
-        createBookmark(value);
+      // const value = searchInputValue.trim();
+      if (isAddingMultiple) {
+        const values = searchInputValue.split("\n");
+        values.forEach((value) => {
+          if (value.trim()) {
+            createBookmark(value.trim());
+          }
+        });
+      } else {
+        const value = searchInputValue.trim();
+        if (value) {
+          createBookmark(value);
+        }
       }
+      searchInputValue = "";
     }
   }
 
@@ -277,8 +292,15 @@
     <ArrowRight size="15" /> BOOKMARKS
     <button
       disabled={isCreating}
-      onmousedown={() => (editingBookmarks = !editingBookmarks)}
+      onmousedown={() => (isAddingMultiple = !isAddingMultiple)}
       class="ml-auto border border-gray-200 px-2.5 py-0.5 cursor-pointer hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
+    >
+      IMPORT
+    </button>
+    <button
+      disabled={isCreating}
+      onmousedown={() => (editingBookmarks = !editingBookmarks)}
+      class="border border-gray-200 px-2.5 py-0.5 cursor-pointer hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
     >
       {#if editingBookmarks}
         FINISH
@@ -290,20 +312,39 @@
   <search
     class="w-full flex items-center gap-3 border-[1.5px] border-gray-300 px-2.5 py-2 pl-3 mb-1 group"
   >
-    <Search
-      size="15"
-      strokeWidth={2.25}
-      class="text-gray-400 transition-colors duration-150 group-focus-within:text-blue-600"
-    />
-    <input
-      type="text"
-      class="w-full focus:outline-none font-medium group"
-      placeholder="Search or paste URL and press Enter (press '/' to focus)"
-      bind:this={searchInputElement}
-      bind:value={searchInputValue}
-      onkeydown={handleSearchInputKeydown}
-      disabled={isCreating}
-    />
+    {#if isAddingMultiple}
+      <PlusCircle
+        size="15"
+        strokeWidth={2.25}
+        class="text-gray-400 transition-colors duration-150 group-focus-within:text-blue-600 mb-auto mt-[5px]"
+      />
+    {:else}
+      <Search
+        size="15"
+        strokeWidth={2.25}
+        class="text-gray-400 transition-colors duration-150 group-focus-within:text-blue-600"
+      />
+    {/if}
+    {#if isAddingMultiple}
+      <textarea
+        class="w-full focus:outline-none font-medium group min-h-24"
+        placeholder="Paste URLs, one per line and press Enter (press '/' to focus)"
+        bind:this={searchInputElement}
+        bind:value={searchInputValue}
+        onkeydown={handleSearchInputKeydown}
+        disabled={isCreating}
+      ></textarea>
+    {:else}
+      <input
+        type="text"
+        class="w-full focus:outline-none font-medium group"
+        placeholder="Search or paste URL and press Enter (press '/' to focus)"
+        bind:this={searchInputElement}
+        bind:value={searchInputValue}
+        onkeydown={handleSearchInputKeydown}
+        disabled={isCreating}
+      />
+    {/if}
   </search>
   {#if createError}
     <p class="text-red-500 text-sm mb-2">{createError}</p>
