@@ -12,6 +12,7 @@
     comment: string | null;
     folder_id: number | null;
     title: string;
+    faviconColor?: string;
   }
 
   interface FolderType {
@@ -38,6 +39,7 @@
   let folders: Array<FolderType> = $state([]);
   let selectedFolderId: number | null = $state(null);
   let folderOpenStates = $state<Record<number, boolean>>({});
+  let dragOverFolderId = $state<number | null | "uncategorized">(null);
 
   function decodeHtmlEntities(text: string): string {
     if (typeof document !== "undefined") {
@@ -94,14 +96,13 @@
         const data = await response.json();
         pageTitle = data.title ? decodeHtmlEntities(data.title) : "";
         faviconColor = data.faviconColor || "black";
-        console.log("favicon color from db:", faviconColor);
         faviconRgbCodeString = `rgb(${faviconColor[0]}, ${faviconColor[1]}, ${faviconColor[2]})`;
-        console.log("favicon rgb code:", faviconRgbCodeString);
       } catch (fetchError: any) {
         console.warn("could not fetch or process page title:", fetchError);
         createError = `could not get title: ${fetchError.message}`;
         pageTitle = url.replace(/^https?:\/\//, "").replace(/^www\./, "");
         if (pageTitle.endsWith("/")) pageTitle = pageTitle.slice(0, -1);
+        faviconRgbCodeString = "rgb(0, 0, 0)";
       }
       const { data: newBookmarkData, error: insertError } = await supabase
         .from("bookmarks")
@@ -195,7 +196,7 @@
     searchInputValue.trim()
       ? bookmarks.filter(
           (b) =>
-            fuzzyMatch(b.title, searchInputValue) ||
+            fuzzyMatch(b.title || "", searchInputValue) ||
             fuzzyMatch(b.url, searchInputValue)
         )
       : bookmarks
@@ -208,7 +209,9 @@
         folder: f,
         bookmarks: filteredBookmarks.filter((b) => b.folder_id === f.id),
       }))
-      .filter((group) => group.bookmarks.length > 0),
+      .filter(
+        (group) => group.bookmarks.length > 0 || searchInputValue.trim() === ""
+      ),
   });
 
   onMount(() => {
@@ -239,7 +242,7 @@
     const originalBookmarks = [...bookmarks];
     bookmarks = bookmarks.map((b) => {
       if (b.id === id) {
-        return { ...b, title: newTitle };
+        return { ...b, title: newTitle, updated_at: new Date().toISOString() };
       }
       return b;
     });
@@ -261,7 +264,7 @@
     const originalBookmarks = [...bookmarks];
     bookmarks = bookmarks.map((b) => {
       if (b.id === id) {
-        return { ...b, url: newUrl };
+        return { ...b, url: newUrl, updated_at: new Date().toISOString() };
       }
       return b;
     });
@@ -283,9 +286,76 @@
     const { data, error } = await supabase.from("folders").select("*");
     if (error) {
       console.error("failed to fetch folders:", error);
-      return [];
+      folders = [];
+      return;
     }
     folders = data ?? [];
+  }
+
+  async function moveBookmarkToFolder(
+    bookmarkId: number,
+    targetFolderId: number | null
+  ) {
+    const bookmarkIndex = bookmarks.findIndex((b) => b.id === bookmarkId);
+    if (bookmarkIndex === -1) return;
+
+    const originalFolderId = bookmarks[bookmarkIndex].folder_id;
+    if (originalFolderId === targetFolderId) return;
+
+    const originalBookmarks = [...bookmarks];
+    bookmarks = bookmarks.map((b) =>
+      b.id === bookmarkId
+        ? {
+            ...b,
+            folder_id: targetFolderId,
+            updated_at: new Date().toISOString(),
+          }
+        : b
+    );
+
+    try {
+      const { error } = await supabase
+        .from("bookmarks")
+        .update({
+          folder_id: targetFolderId,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", bookmarkId);
+
+      if (error) {
+        throw error;
+      }
+    } catch (error: any) {
+      console.error("failed to move bookmark:", error);
+      bookmarks = originalBookmarks;
+    }
+  }
+
+  function handleDragOver(event: DragEvent) {
+    event.preventDefault();
+    if (event.dataTransfer) {
+      event.dataTransfer.dropEffect = "move";
+    }
+  }
+
+  function handleDrop(event: DragEvent, targetFolderId: number | null) {
+    event.preventDefault();
+    const bookmarkIdStr = event.dataTransfer?.getData("text/plain");
+    dragOverFolderId = null;
+    if (!bookmarkIdStr) return;
+
+    const bookmarkId = parseInt(bookmarkIdStr, 10);
+    if (!isNaN(bookmarkId)) {
+      moveBookmarkToFolder(bookmarkId, targetFolderId);
+    }
+  }
+
+  function handleFolderDragEnter(folderId: number | null | "uncategorized") {
+    dragOverFolderId = folderId;
+  }
+
+  function handleFolderDragLeave() {
+    dragOverFolderId = null;
   }
 
   $effect(() => {
@@ -353,7 +423,10 @@
         disabled={isCreating}
       />
     {/if}
-    <select bind:value={selectedFolderId}>
+    <select
+      bind:value={selectedFolderId}
+      class="ml-2 flex-shrink-0 p-1 border border-gray-300 rounded"
+    >
       <option value={null}>Uncategorized</option>
       {#each folders as folder}
         <option value={folder.id}>{folder.name}</option>
@@ -378,11 +451,21 @@
     <div class="flex flex-col gap-5">
       {#each groupedBookmarks.folders as group (group.folder.id)}
         {@const isOpen = folderOpenStates[group.folder.id] ?? true}
-        <div>
-          <h3 class="flex items-center gap-2 font-geist font-medium">
+        {@const isDragOverTarget = dragOverFolderId === group.folder.id}
+        <div
+          ondragover={handleDragOver}
+          ondrop={(e) => handleDrop(e, group.folder.id)}
+          ondragenter={() => handleFolderDragEnter(group.folder.id)}
+          ondragleave={handleFolderDragLeave}
+          class:bg-blue-50={isDragOverTarget}
+          role="button"
+          tabindex="0"
+          class="p-2 rounded-md transition-colors duration-150"
+        >
+          <h3 class="flex items-center gap-2 font-geist font-medium mb-1">
             <button
               onclick={() => (folderOpenStates[group.folder.id] = !isOpen)}
-              class="flex items-center gap-2 cursor-pointer"
+              class="flex items-center gap-2 cursor-pointer hover:text-blue-600"
             >
               <Folder size="15" />
               {group.folder.name}
@@ -390,24 +473,47 @@
           </h3>
           {#if isOpen}
             <div
-              class="flex flex-col gap-1 border-l-2 border-gray-200 ml-[6.75px] pl-3.5 mt-2 opacity-75"
+              class="flex flex-col gap-1 border-l-2 border-gray-200 ml-[6.75px] pl-3.5 mt-2"
             >
-              {#each group.bookmarks as bookmark (bookmark.id)}
-                <Bookmark
-                  {bookmark}
-                  onDelete={handleDelete}
-                  editing={editingBookmarks}
-                  onEditTitle={handleEditTitle}
-                  onEditUrl={handleEditUrl}
-                />
-              {/each}
+              {#if group.bookmarks.length > 0}
+                {#each group.bookmarks as bookmark (bookmark.id)}
+                  <Bookmark
+                    {bookmark}
+                    onDelete={handleDelete}
+                    editing={editingBookmarks}
+                    onEditTitle={handleEditTitle}
+                    onEditUrl={handleEditUrl}
+                  />
+                {/each}
+              {:else if !isDragOverTarget}
+                <p class="text-xs text-gray-400 italic pl-1">Empty folder</p>
+              {/if}
+              {#if isDragOverTarget}
+                <div
+                  class="h-8 border-2 border-dashed border-blue-300 rounded-md bg-blue-100 flex items-center justify-center text-blue-600 text-sm"
+                >
+                  Drop here
+                </div>
+              {/if}
             </div>
           {/if}
         </div>
       {/each}
-      {#if groupedBookmarks.uncategorized.length > 0}
-        <div class="flex flex-col gap-1 mt-2">
-          <div class="bg-gray-300 w-[96px] h-[2px] mb-1"></div>
+
+      <div
+        ondragover={handleDragOver}
+        ondrop={(e) => handleDrop(e, null)}
+        ondragenter={() => handleFolderDragEnter("uncategorized")}
+        ondragleave={handleFolderDragLeave}
+        role="button"
+        tabindex="0"
+        class:bg-blue-50={dragOverFolderId === "uncategorized"}
+        class="flex flex-col gap-1 mt-2 p-2 rounded-md transition-colors duration-150"
+      >
+        {#if groupedBookmarks.uncategorized.length > 0}
+          <h3 class="font-geist font-medium text-gray-500 mb-1 ml-1">
+            Uncategorized
+          </h3>
           {#each groupedBookmarks.uncategorized as bookmark (bookmark.id)}
             <Bookmark
               {bookmark}
@@ -417,8 +523,15 @@
               onEditUrl={handleEditUrl}
             />
           {/each}
-        </div>
-      {/if}
+        {/if}
+        {#if dragOverFolderId === "uncategorized"}
+          <div
+            class="h-8 border-2 border-dashed border-blue-300 rounded-md bg-blue-100 flex items-center justify-center text-blue-600 text-sm mt-1"
+          >
+            Drop here to uncategorize
+          </div>
+        {/if}
+      </div>
     </div>
   {/if}
 </main>
