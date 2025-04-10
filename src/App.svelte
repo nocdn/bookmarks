@@ -435,7 +435,7 @@
     {/if}
     <select
       bind:value={selectedFolderId}
-      class="ml-2 flex-shrink-0 p-1 border border-gray-300 rounded"
+      class="ml-2 flex-shrink-0 p-1 border border-gray-300 rounded hidden sm:block"
     >
       <option value={null}>Uncategorized</option>
       {#each folders as folder}
