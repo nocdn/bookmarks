@@ -354,8 +354,18 @@
     dragOverFolderId = folderId;
   }
 
-  function handleFolderDragLeave() {
-    dragOverFolderId = null;
+  function handleFolderDragLeave(event: DragEvent) {
+    // Check if the relatedTarget (where the mouse is going) is still within the drop zone
+    // If it is, we don't want to clear the highlight yet.
+    const currentTarget = event.currentTarget as HTMLElement;
+    const relatedTarget = event.relatedTarget as HTMLElement;
+    if (
+      !currentTarget ||
+      !relatedTarget ||
+      !currentTarget.contains(relatedTarget)
+    ) {
+      dragOverFolderId = null;
+    }
   }
 
   $effect(() => {
@@ -365,8 +375,8 @@
   });
 </script>
 
-<main class="p-6 flex flex-col gap-3 font-jetbrains-mono">
-  <header class="flex gap-2 items-center font-jetbrains-mono">
+<main class="p-6 flex flex-col gap-3 font-jetbrains-mono min-h-screen">
+  <header class="flex gap-2 items-center font-jetbrains-mono flex-shrink-0">
     <ArrowRight size="15" /> BOOKMARKS
     <button
       disabled={isCreating}
@@ -388,7 +398,7 @@
     </button>
   </header>
   <search
-    class="w-full flex items-center gap-3 border-[1.5px] border-gray-300 px-2.5 py-2 pl-3 mb-1 group"
+    class="w-full flex items-center gap-3 border-[1.5px] border-gray-300 px-2.5 py-2 pl-3 mb-1 group flex-shrink-0"
   >
     {#if isAddingMultiple}
       <PlusCircle
@@ -434,21 +444,23 @@
     </select>
   </search>
   {#if createError}
-    <p class="text-red-500 text-sm mb-2">{createError}</p>
+    <p class="text-red-500 text-sm mb-2 flex-shrink-0">{createError}</p>
   {/if}
   {#if isLoading}
-    <p>Loading bookmarks...</p>
+    <p class="flex-shrink-0">Loading bookmarks...</p>
   {:else if fetchError}
-    <p class="text-red-600">Error loading bookmarks: {fetchError}</p>
+    <p class="text-red-600 flex-shrink-0">
+      Error loading bookmarks: {fetchError}
+    </p>
   {:else if bookmarks.length === 0 && !isCreating}
-    <p class="text-gray-400 font-[450]">
+    <p class="text-gray-400 font-[450] flex-shrink-0">
       No bookmarks found. Paste a URL and press Enter to add one.
     </p>
   {:else}
     {#if isCreating && !createError}
-      <p>Adding bookmark...</p>
+      <p class="flex-shrink-0">Adding bookmark...</p>
     {/if}
-    <div class="flex flex-col gap-5">
+    <div class="flex flex-col gap-5 flex-grow">
       {#each groupedBookmarks.folders as group (group.folder.id)}
         {@const isOpen = folderOpenStates[group.folder.id] ?? true}
         {@const isDragOverTarget = dragOverFolderId === group.folder.id}
@@ -457,10 +469,10 @@
           ondrop={(e) => handleDrop(e, group.folder.id)}
           ondragenter={() => handleFolderDragEnter(group.folder.id)}
           ondragleave={handleFolderDragLeave}
-          class:bg-blue-50={isDragOverTarget}
           role="button"
           tabindex="0"
-          class="p-2 rounded-md transition-colors duration-150"
+          class:bg-blue-50={isDragOverTarget}
+          class="p-2 rounded-md transition-colors duration-150 flex-shrink-0"
         >
           <h3 class="flex items-center gap-2 font-geist font-medium mb-1">
             <button
@@ -488,13 +500,6 @@
               {:else if !isDragOverTarget}
                 <p class="text-xs text-gray-400 italic pl-1">Empty folder</p>
               {/if}
-              {#if isDragOverTarget}
-                <div
-                  class="h-8 border-2 border-dashed border-blue-300 rounded-md bg-blue-100 flex items-center justify-center text-blue-600 text-sm"
-                >
-                  Drop here
-                </div>
-              {/if}
             </div>
           {/if}
         </div>
@@ -508,10 +513,12 @@
         role="button"
         tabindex="0"
         class:bg-blue-50={dragOverFolderId === "uncategorized"}
-        class="flex flex-col gap-1 mt-2 p-2 rounded-md transition-colors duration-150"
+        class="flex flex-col gap-1 mt-2 p-2 rounded-md transition-colors duration-150 min-h-40 flex-grow"
       >
         {#if groupedBookmarks.uncategorized.length > 0}
-          <h3 class="font-geist font-medium text-gray-500 mb-1 ml-1">
+          <h3
+            class="font-geist font-medium text-gray-500 mb-1 ml-1 flex-shrink-0"
+          >
             Uncategorized
           </h3>
           {#each groupedBookmarks.uncategorized as bookmark (bookmark.id)}
@@ -524,11 +531,11 @@
             />
           {/each}
         {/if}
-        {#if dragOverFolderId === "uncategorized"}
+        {#if groupedBookmarks.uncategorized.length === 0 && dragOverFolderId !== "uncategorized"}
           <div
-            class="h-8 border-2 border-dashed border-blue-300 rounded-md bg-blue-100 flex items-center justify-center text-blue-600 text-sm mt-1"
+            class="flex-grow flex items-center justify-center text-gray-400 italic"
           >
-            Drop here to uncategorize
+            Drag items here to uncategorize
           </div>
         {/if}
       </div>
