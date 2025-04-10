@@ -10,7 +10,7 @@
     created_at: string;
     updated_at: string | null;
     comment: string | null;
-    folder: string | null;
+    folder_id: number | null;
     title: string;
   }
 
@@ -38,14 +38,13 @@
   let folders: Array<FolderType> = $state([]);
   let selectedFolderId: number | null = $state(null);
 
-  // helper to decode html entities
   function decodeHtmlEntities(text: string): string {
     if (typeof document !== "undefined") {
       const textarea = document.createElement("textarea");
       textarea.innerHTML = text;
       return textarea.value;
     }
-    return text; // return original text if document not available (SSR)
+    return text;
   }
 
   async function fetchBookmarks() {
@@ -56,35 +55,10 @@
         .from("bookmarks")
         .select("*")
         .order("created_at", { ascending: false });
-
       if (error) {
         throw error;
       }
       bookmarks = data ?? [];
-
-      // example return data:
-      // [
-      //   {
-      //     id: 59,
-      //     url: "https://github.com/nocdn/cloudflare-temp-mail",
-      //     created_at: "2025-04-10T10:49:03.043+00:00",
-      //     updated_at: "2025-04-10T10:49:16.797+00:00",
-      //     comment: null,
-      //     folder_id: null,
-      //     title: "nocdn/cloudflare-temp-mail",
-      //     faviconColor: "rgb(20, 20, 20)",
-      //   },
-      //   {
-      //     id: 58,
-      //     url: "https://www.color-hex.com/color/fc6404",
-      //     created_at: "2025-04-10T10:42:21.76+00:00",
-      //     updated_at: "2025-04-10T10:44:26.836+00:00",
-      //     comment: null,
-      //     folder_id: 1,
-      //     title: "#fc6404 Color Hex",
-      //     faviconColor: "rgb(10, 10, 10)",
-      //   },
-      // ];
     } catch (error: any) {
       console.error("failed to fetch bookmarks:", error);
       fetchError = error.message || "an unknown error occurred";
@@ -98,10 +72,8 @@
     if (!url.startsWith("http://") && !url.startsWith("https://")) {
       url = `https://${url}`;
     }
-
     isCreating = true;
     createError = null;
-
     try {
       let pageTitle = "";
       let faviconColor = "";
@@ -109,7 +81,6 @@
       try {
         const proxyUrl = `http://84.8.144.162:8030/api/fetch-title?url=${encodeURIComponent(url)}`;
         const response = await fetch(proxyUrl);
-
         if (!response.ok) {
           const errorData = await response
             .json()
@@ -119,14 +90,11 @@
               `proxy request failed with status: ${response.status}`
           );
         }
-
         const data = await response.json();
         pageTitle = data.title ? decodeHtmlEntities(data.title) : "";
         faviconColor = data.faviconColor || "black";
         console.log("favicon color from db:", faviconColor);
-        faviconRgbCodeString = `rgb(${faviconColor[0]}, ${
-          faviconColor[1]
-        }, ${faviconColor[2]})`;
+        faviconRgbCodeString = `rgb(${faviconColor[0]}, ${faviconColor[1]}, ${faviconColor[2]})`;
         console.log("favicon rgb code:", faviconRgbCodeString);
       } catch (fetchError: any) {
         console.warn("could not fetch or process page title:", fetchError);
@@ -134,7 +102,6 @@
         pageTitle = url.replace(/^https?:\/\//, "").replace(/^www\./, "");
         if (pageTitle.endsWith("/")) pageTitle = pageTitle.slice(0, -1);
       }
-
       const { data: newBookmarkData, error: insertError } = await supabase
         .from("bookmarks")
         .insert([
@@ -149,11 +116,9 @@
         ])
         .select()
         .single();
-
       if (insertError) {
         throw insertError;
       }
-
       if (newBookmarkData) {
         bookmarks = [newBookmarkData as BookmarkType, ...bookmarks];
         searchInputValue = "";
@@ -181,7 +146,6 @@
   async function handleDelete(id: number) {
     const originalBookmarks = [...bookmarks];
     bookmarks = bookmarks.filter((b) => b.id !== id);
-
     try {
       const { error } = await supabase.from("bookmarks").delete().match({ id });
       if (error) {
@@ -196,7 +160,6 @@
   function handleSearchInputKeydown(event: KeyboardEvent) {
     if (event.key === "Enter" && !event.shiftKey) {
       event.preventDefault();
-      // const value = searchInputValue.trim();
       if (isAddingMultiple) {
         const values = searchInputValue.split("\n");
         values.forEach((value) => {
@@ -214,7 +177,6 @@
     }
   }
 
-  // fuzzy match function to check if all characters in the pattern exist in the text (in order)
   function fuzzyMatch(text: string, pattern: string): boolean {
     if (!pattern) return true;
     text = text.toLowerCase();
@@ -228,7 +190,6 @@
     return j === pattern.length;
   }
 
-  // reactively filter bookmarks based on search input by checking title and url fields
   let filteredBookmarks = $derived(
     searchInputValue.trim()
       ? bookmarks.filter(
@@ -239,9 +200,18 @@
       : bookmarks
   );
 
+  let groupedBookmarks = $derived({
+    uncategorized: filteredBookmarks.filter((b) => !b.folder_id),
+    folders: folders
+      .map((f) => ({
+        folder: f,
+        bookmarks: filteredBookmarks.filter((b) => b.folder_id === f.id),
+      }))
+      .filter((group) => group.bookmarks.length > 0), // Keep only folders with bookmarks
+  });
+
   onMount(() => {
     searchInputElement?.focus();
-
     const handleGlobalKeydown = (event: KeyboardEvent) => {
       if (event.key === "/") {
         if (
@@ -256,28 +226,21 @@
         }
       }
     };
-
     document.addEventListener("keydown", handleGlobalKeydown);
     fetchBookmarks();
-
     return () => {
       document.removeEventListener("keydown", handleGlobalKeydown);
     };
   });
 
   async function handleEditTitle(id: number, newTitle: string) {
-    // eagerly update the bookmarks array to show new title immediately
     const originalBookmarks = [...bookmarks];
     bookmarks = bookmarks.map((b) => {
       if (b.id === id) {
-        return {
-          ...b,
-          title: newTitle,
-        };
+        return { ...b, title: newTitle };
       }
       return b;
     });
-
     try {
       const { error } = await supabase
         .from("bookmarks")
@@ -293,18 +256,13 @@
   }
 
   async function handleEditUrl(id: number, newUrl: string) {
-    // eagerly update the bookmarks array to show new url immediately
     const originalBookmarks = [...bookmarks];
     bookmarks = bookmarks.map((b) => {
       if (b.id === id) {
-        return {
-          ...b,
-          url: newUrl,
-        };
+        return { ...b, url: newUrl };
       }
       return b;
     });
-
     try {
       const { error } = await supabase
         .from("bookmarks")
@@ -321,26 +279,11 @@
 
   async function fetchFolders() {
     const { data, error } = await supabase.from("folders").select("*");
-
     if (error) {
       console.error("failed to fetch folders:", error);
       return [];
     }
     folders = data ?? [];
-
-    // example return data:
-    // [
-    //   {
-    //     id: 1,
-    //     name: "Design Inspirations",
-    //     parent_id: null,
-    //   },
-    //   {
-    //     id: 2,
-    //     name: "Github Projects",
-    //     parent_id: null,
-    //   },
-    // ];
   }
 
   fetchFolders();
@@ -419,7 +362,6 @@
   {#if createError}
     <p class="text-red-500 text-sm mb-2">{createError}</p>
   {/if}
-
   {#if isLoading}
     <p>Loading bookmarks...</p>
   {:else if fetchError}
@@ -432,16 +374,41 @@
     {#if isCreating && !createError}
       <p>Adding bookmark...</p>
     {/if}
-    <div class="flex flex-col gap-1.5">
-      {#each filteredBookmarks as bookmark (bookmark.id)}
-        <Bookmark
-          {bookmark}
-          onDelete={handleDelete}
-          editing={editingBookmarks}
-          onEditTitle={handleEditTitle}
-          onEditUrl={handleEditUrl}
-        />
+    <div class="flex flex-col gap-5">
+      {#each groupedBookmarks.folders as group (group.folder.id)}
+        <div>
+          <h3 class="flex items-center gap-2">
+            <Folder size="15" />
+            {group.folder.name}
+          </h3>
+          <div
+            class="flex flex-col gap-1 border-l-2 border-gray-200 ml-[6.75px] pl-3.5 mt-2"
+          >
+            {#each group.bookmarks as bookmark (bookmark.id)}
+              <Bookmark
+                {bookmark}
+                onDelete={handleDelete}
+                editing={editingBookmarks}
+                onEditTitle={handleEditTitle}
+                onEditUrl={handleEditUrl}
+              />
+            {/each}
+          </div>
+        </div>
       {/each}
+      {#if groupedBookmarks.uncategorized.length > 0}
+        <div class="flex flex-col gap-1 mt-2">
+          {#each groupedBookmarks.uncategorized as bookmark (bookmark.id)}
+            <Bookmark
+              {bookmark}
+              onDelete={handleDelete}
+              editing={editingBookmarks}
+              onEditTitle={handleEditTitle}
+              onEditUrl={handleEditUrl}
+            />
+          {/each}
+        </div>
+      {/if}
     </div>
   {/if}
 </main>
