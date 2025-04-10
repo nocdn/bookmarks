@@ -179,8 +179,7 @@
     }
   }
 
-  // fuzzy match function to check if all characters in the pattern exist
-  // in the text (in order)
+  // fuzzy match function to check if all characters in the pattern exist in the text (in order)
   function fuzzyMatch(text: string, pattern: string): boolean {
     if (!pattern) return true;
     text = text.toLowerCase();
@@ -194,8 +193,7 @@
     return j === pattern.length;
   }
 
-  // reactively filter bookmarks based on search input
-  // by checking title and url fields
+  // reactively filter bookmarks based on search input by checking title and url fields
   let filteredBookmarks = $derived(
     searchInputValue.trim()
       ? bookmarks.filter(
@@ -285,6 +283,12 @@
       bookmarks = originalBookmarks;
     }
   }
+
+  $effect(() => {
+    if (bookmarks.length === 0) {
+      editingBookmarks = false;
+    }
+  });
 </script>
 
 <main class="p-4 flex flex-col gap-3 font-jetbrains-mono">
@@ -298,7 +302,7 @@
       IMPORT
     </button>
     <button
-      disabled={isCreating}
+      disabled={isCreating || isLoading || bookmarks.length === 0}
       onmousedown={() => (editingBookmarks = !editingBookmarks)}
       class="border border-gray-200 px-2.5 py-0.5 cursor-pointer hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
     >
@@ -355,7 +359,7 @@
   {:else if fetchError}
     <p class="text-red-600">Error loading bookmarks: {fetchError}</p>
   {:else if bookmarks.length === 0 && !isCreating}
-    <p class="text-gray-600 font-[450]">
+    <p class="text-gray-400 font-[450]">
       No bookmarks found. Paste a URL and press Enter to add one.
     </p>
   {:else}

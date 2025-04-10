@@ -183,6 +183,11 @@
       cleanupEditKeyListeners = null; // clear reference after cleanup
     };
   }
+
+  let urlEditingFieldWidth = $state(0);
+  $effect(() => {
+    urlEditingFieldWidth = newUrl.length * 8.66; // approximate width per character
+  });
 </script>
 
 <bookmark
@@ -205,11 +210,12 @@
       type="text"
       bind:value={newTitle}
       bind:this={titleEditingElement}
-      class="flex-auto font-[450] bg-transparent focus:outline-blue-300 px-0.5 mr-auto"
+      class="flex-auto font-[450] bg-transparent focus:outline-blue-300 focus:outline-[1.5px] ml-0.5 mr-auto"
       aria-label="Edit bookmark title"
       onclick={(e) => {
         e.stopPropagation();
       }}
+      data-1p-ignore
     />
   {:else}
     <a
@@ -236,7 +242,8 @@
         type="text"
         bind:value={newUrl}
         bind:this={urlEditingElement}
-        class="text-gray-500 focus:outline-blue-300"
+        class="text-gray-500 focus:outline-blue-300 focus:outline-[1.5px]"
+        style="width: {urlEditingFieldWidth}px;"
         aria-label="Edit bookmark url"
         onclick={(e) => {
           e.stopPropagation();
