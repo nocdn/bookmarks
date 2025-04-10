@@ -37,6 +37,7 @@
   let isAddingMultiple = $state(false);
   let folders: Array<FolderType> = $state([]);
   let selectedFolderId: number | null = $state(null);
+  let folderOpenStates = $state<Record<number, boolean>>({});
 
   function decodeHtmlEntities(text: string): string {
     if (typeof document !== "undefined") {
@@ -207,7 +208,7 @@
         folder: f,
         bookmarks: filteredBookmarks.filter((b) => b.folder_id === f.id),
       }))
-      .filter((group) => group.bookmarks.length > 0), // Keep only folders with bookmarks
+      .filter((group) => group.bookmarks.length > 0),
   });
 
   onMount(() => {
@@ -228,6 +229,7 @@
     };
     document.addEventListener("keydown", handleGlobalKeydown);
     fetchBookmarks();
+    fetchFolders();
     return () => {
       document.removeEventListener("keydown", handleGlobalKeydown);
     };
@@ -286,8 +288,6 @@
     folders = data ?? [];
   }
 
-  fetchFolders();
-
   $effect(() => {
     if (bookmarks.length === 0) {
       editingBookmarks = false;
@@ -295,7 +295,7 @@
   });
 </script>
 
-<main class="p-4 flex flex-col gap-3 font-jetbrains-mono">
+<main class="p-6 flex flex-col gap-3 font-jetbrains-mono">
   <header class="flex gap-2 items-center font-jetbrains-mono">
     <ArrowRight size="15" /> BOOKMARKS
     <button
@@ -354,6 +354,7 @@
       />
     {/if}
     <select bind:value={selectedFolderId}>
+      <option value={null}>Uncategorized</option>
       {#each folders as folder}
         <option value={folder.id}>{folder.name}</option>
       {/each}
@@ -376,28 +377,37 @@
     {/if}
     <div class="flex flex-col gap-5">
       {#each groupedBookmarks.folders as group (group.folder.id)}
+        {@const isOpen = folderOpenStates[group.folder.id] ?? true}
         <div>
-          <h3 class="flex items-center gap-2">
-            <Folder size="15" />
-            {group.folder.name}
+          <h3 class="flex items-center gap-2 font-geist font-medium">
+            <button
+              onclick={() => (folderOpenStates[group.folder.id] = !isOpen)}
+              class="flex items-center gap-2 cursor-pointer"
+            >
+              <Folder size="15" />
+              {group.folder.name}
+            </button>
           </h3>
-          <div
-            class="flex flex-col gap-1 border-l-2 border-gray-200 ml-[6.75px] pl-3.5 mt-2"
-          >
-            {#each group.bookmarks as bookmark (bookmark.id)}
-              <Bookmark
-                {bookmark}
-                onDelete={handleDelete}
-                editing={editingBookmarks}
-                onEditTitle={handleEditTitle}
-                onEditUrl={handleEditUrl}
-              />
-            {/each}
-          </div>
+          {#if isOpen}
+            <div
+              class="flex flex-col gap-1 border-l-2 border-gray-200 ml-[6.75px] pl-3.5 mt-2 opacity-75"
+            >
+              {#each group.bookmarks as bookmark (bookmark.id)}
+                <Bookmark
+                  {bookmark}
+                  onDelete={handleDelete}
+                  editing={editingBookmarks}
+                  onEditTitle={handleEditTitle}
+                  onEditUrl={handleEditUrl}
+                />
+              {/each}
+            </div>
+          {/if}
         </div>
       {/each}
       {#if groupedBookmarks.uncategorized.length > 0}
         <div class="flex flex-col gap-1 mt-2">
+          <div class="bg-gray-300 w-[96px] h-[2px] mb-1"></div>
           {#each groupedBookmarks.uncategorized as bookmark (bookmark.id)}
             <Bookmark
               {bookmark}
