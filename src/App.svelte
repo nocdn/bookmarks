@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { ArrowRight, PlusCircle, Search } from "lucide-svelte";
+  import { ArrowRight, PlusCircle, Search, Folder } from "lucide-svelte";
   import Bookmark from "./Bookmark.svelte";
   import { onMount } from "svelte";
   import { createClient } from "@supabase/supabase-js";
@@ -12,6 +12,12 @@
     comment: string | null;
     folder: string | null;
     title: string;
+  }
+
+  interface FolderType {
+    id: number;
+    name: string;
+    parent_id: number | null;
   }
 
   const supabaseUrl = "https://zglidwrsngurwotngzct.supabase.co";
@@ -29,6 +35,8 @@
   let fetchError: string | null = $state(null);
   let createError: string | null = $state(null);
   let isAddingMultiple = $state(false);
+  let folders: Array<FolderType> = $state([]);
+  let selectedFolderId: number | null = $state(null);
 
   // helper to decode html entities
   function decodeHtmlEntities(text: string): string {
@@ -53,6 +61,30 @@
         throw error;
       }
       bookmarks = data ?? [];
+
+      // example return data:
+      // [
+      //   {
+      //     id: 59,
+      //     url: "https://github.com/nocdn/cloudflare-temp-mail",
+      //     created_at: "2025-04-10T10:49:03.043+00:00",
+      //     updated_at: "2025-04-10T10:49:16.797+00:00",
+      //     comment: null,
+      //     folder_id: null,
+      //     title: "nocdn/cloudflare-temp-mail",
+      //     faviconColor: "rgb(20, 20, 20)",
+      //   },
+      //   {
+      //     id: 58,
+      //     url: "https://www.color-hex.com/color/fc6404",
+      //     created_at: "2025-04-10T10:42:21.76+00:00",
+      //     updated_at: "2025-04-10T10:44:26.836+00:00",
+      //     comment: null,
+      //     folder_id: 1,
+      //     title: "#fc6404 Color Hex",
+      //     faviconColor: "rgb(10, 10, 10)",
+      //   },
+      // ];
     } catch (error: any) {
       console.error("failed to fetch bookmarks:", error);
       fetchError = error.message || "an unknown error occurred";
@@ -110,6 +142,9 @@
             url: url,
             title: pageTitle || "Untitled",
             faviconColor: faviconRgbCodeString,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+            folder_id: selectedFolderId,
           },
         ])
         .select()
@@ -246,7 +281,7 @@
     try {
       const { error } = await supabase
         .from("bookmarks")
-        .update({ title: newTitle })
+        .update({ title: newTitle, updated_at: new Date().toISOString() })
         .eq("id", id);
       if (error) {
         throw error;
@@ -273,7 +308,7 @@
     try {
       const { error } = await supabase
         .from("bookmarks")
-        .update({ url: newUrl })
+        .update({ url: newUrl, updated_at: new Date().toISOString() })
         .eq("id", id);
       if (error) {
         throw error;
@@ -283,6 +318,32 @@
       bookmarks = originalBookmarks;
     }
   }
+
+  async function fetchFolders() {
+    const { data, error } = await supabase.from("folders").select("*");
+
+    if (error) {
+      console.error("failed to fetch folders:", error);
+      return [];
+    }
+    folders = data ?? [];
+
+    // example return data:
+    // [
+    //   {
+    //     id: 1,
+    //     name: "Design Inspirations",
+    //     parent_id: null,
+    //   },
+    //   {
+    //     id: 2,
+    //     name: "Github Projects",
+    //     parent_id: null,
+    //   },
+    // ];
+  }
+
+  fetchFolders();
 
   $effect(() => {
     if (bookmarks.length === 0) {
@@ -349,6 +410,11 @@
         disabled={isCreating}
       />
     {/if}
+    <select bind:value={selectedFolderId}>
+      {#each folders as folder}
+        <option value={folder.id}>{folder.name}</option>
+      {/each}
+    </select>
   </search>
   {#if createError}
     <p class="text-red-500 text-sm mb-2">{createError}</p>
