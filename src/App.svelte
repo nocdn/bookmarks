@@ -1,5 +1,12 @@
 <script lang="ts">
-  import { ArrowRight, PlusCircle, Search, Folder, Inbox } from "lucide-svelte";
+  import {
+    ArrowRight,
+    PlusCircle,
+    Search,
+    Folder,
+    Inbox,
+    HeartCrack,
+  } from "lucide-svelte";
   import Bookmark from "./Bookmark.svelte";
   import { onMount } from "svelte";
   import { createClient } from "@supabase/supabase-js";
@@ -38,12 +45,11 @@
   let createError: string | null = $state(null);
   let isAddingMultiple = $state(false);
   let folders: Array<FolderType> = $state([]);
-  // default to null for uncategorized
   let currentSelectedFolderId = $state<number | null>(null);
-  // drag&drop state - keep for now, might be useful later
   let dragOverFolderId = $state<number | null | "uncategorized">(null);
-  // remove folderOpenStates as it's not needed for the sidebar layout
-  // let folderOpenStates = $state<Record<number, boolean>>({});
+  let isCreatingFolder = $state(false);
+  let newFolderName = $state("");
+  let newFolderColor = $state("rgb(0, 0, 0)");
 
   function decodeHtmlEntities(text: string): string {
     if (typeof document !== "undefined") {
@@ -395,7 +401,29 @@
     if (bookmarks.length === 0) {
       editingBookmarks = false;
     }
+
+    console.log("newFolderName:", newFolderName);
   });
+
+  async function handleCreateFolder() {
+    isCreatingFolder = false;
+    // create folder in the database
+    const { data: newFolderData, error: insertError } = await supabase
+      .from("folders")
+      .insert([
+        {
+          name: newFolderName,
+          color: newFolderColor,
+          parent_id: null,
+        },
+      ]);
+    if (insertError) {
+      console.error("failed to create folder:", insertError);
+      return;
+    }
+    console.log("created folder:", newFolderData);
+    fetchFolders();
+  }
 </script>
 
 <main class="p-6 flex flex-col gap-3 font-jetbrains-mono min-h-screen">
@@ -548,6 +576,38 @@
             {folder.name}</button
           >
         {/each}
+        <button
+          id="new-folder"
+          class="mr-auto p-1.5 px-2.5 pl-[12.5px] text-gray-500 hover:bg-gray-100 rounded-md flex items-center gap-2"
+          onmousedown={() => {
+            if (!isCreatingFolder) {
+              isCreatingFolder = !isCreatingFolder;
+            }
+          }}
+        >
+          {#if isCreatingFolder}
+            <input
+              type="text"
+              class="w-full focus:outline-none font-medium"
+              placeholder="New folder name"
+              bind:value={newFolderName}
+              onkeydown={(e) => {
+                if (e.key === "Enter") {
+                  console.log("creating folder with name:", newFolderName);
+                  if (newFolderName.trim()) {
+                    handleCreateFolder();
+                  }
+                  isCreatingFolder = false; // close input on enter
+                } else if (e.key === "Escape") {
+                  isCreatingFolder = false;
+                  newFolderName = "";
+                }
+              }}
+            />
+          {:else}
+            + new folder
+          {/if}
+        </button>
       </folders>
 
       <!-- bookmarks list for the selected folder -->
@@ -567,7 +627,9 @@
             No bookmarks match your search in this folder.
           </p>
         {:else}
-          <p class="text-gray-500 italic px-1">This folder is empty.</p>
+          <p class="text-gray-500 font-geist-mono px-1 flex items-center gap-2">
+            empty <HeartCrack size={14} strokeWidth={2.5} />
+          </p>
         {/if}
       </div>
     </div>
