@@ -3,12 +3,13 @@
     ArrowRight,
     PlusCircle,
     Search,
-    Folder,
+    Folder as FolderIcon,
     Inbox,
     HeartCrack,
     Sparkles,
   } from "lucide-svelte";
   import Bookmark from "./Bookmark.svelte";
+  import Folder from "./Folder.svelte";
   import { onMount } from "svelte";
   import { createClient } from "@supabase/supabase-js";
 
@@ -110,11 +111,10 @@
         const data = await response.json();
         pageTitle = data.title ? decodeHtmlEntities(data.title) : "";
         faviconColor = data.faviconColor || "black";
-        // ensure faviconcolor is an array before accessing elements
         if (Array.isArray(faviconColor) && faviconColor.length >= 3) {
           faviconRgbCodeString = `rgb(${faviconColor[0]}, ${faviconColor[1]}, ${faviconColor[2]})`;
         } else {
-          faviconRgbCodeString = "rgb(0, 0, 0)"; // default black
+          faviconRgbCodeString = "rgb(0, 0, 0)";
         }
       } catch (fetchError: any) {
         console.warn("could not fetch or process page title:", fetchError);
@@ -133,7 +133,6 @@
             faviconColor: faviconRgbCodeString,
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
-            // use the currently selected folder when creating
             folder_id: currentSelectedFolderId,
           },
         ])
@@ -143,9 +142,8 @@
         throw insertError;
       }
       if (newBookmarkData) {
-        // add to the beginning of the list
         bookmarks = [newBookmarkData as BookmarkType, ...bookmarks];
-        searchInputValue = ""; // clear search on successful add
+        searchInputValue = "";
       } else {
         throw new Error("bookmark created but no data returned");
       }
@@ -162,7 +160,7 @@
     } finally {
       isCreating = false;
       if (isAddingMultiple) {
-        isAddingMultiple = false; // turn off multi-add mode after submission
+        isAddingMultiple = false;
       }
     }
   }
@@ -177,7 +175,7 @@
       }
     } catch (error: any) {
       console.error("delete failed:", error);
-      bookmarks = originalBookmarks; // revert on error
+      bookmarks = originalBookmarks;
     }
   }
 
@@ -191,7 +189,6 @@
             createBookmark(value.trim());
           }
         });
-        // searchInputValue = ""; // cleared inside createBookmark if successful
       } else {
         const value = searchInputValue.trim();
         if (value) {
@@ -224,19 +221,18 @@
   });
 
   function fuzzyMatch(text: string, pattern: string): boolean {
-    if (!pattern) return true; // match if pattern is empty
+    if (!pattern) return true;
     text = text.toLowerCase();
     pattern = pattern.toLowerCase();
-    let j = 0; // pointer for pattern
+    let j = 0;
     for (let i = 0; i < text.length && j < pattern.length; i++) {
       if (text[i] === pattern[j]) {
         j++;
       }
     }
-    return j === pattern.length; // true if entire pattern was matched
+    return j === pattern.length;
   }
 
-  // filter bookmarks based on search first
   let searchedBookmarks = $derived(
     bookmarks.filter(
       (b) =>
@@ -245,25 +241,9 @@
     )
   );
 
-  // then filter based on the selected folder
   let displayedBookmarks = $derived(
     searchedBookmarks.filter((b) => b.folder_id === currentSelectedFolderId)
   );
-
-  // remove old groupedBookmarks logic
-  /*
-  let groupedBookmarks = $derived({
-    uncategorized: filteredBookmarks.filter((b) => !b.folder_id),
-    folders: folders
-      .map((f) => ({
-        folder: f,
-        bookmarks: filteredBookmarks.filter((b) => b.folder_id === f.id),
-      }))
-      .filter(
-        (group) => group.bookmarks.length > 0 || searchInputValue.trim() === ""
-      ),
-  });
-  */
 
   onMount(() => {
     searchInputElement?.focus();
@@ -291,7 +271,6 @@
 
   async function handleEditTitle(id: number, newTitle: string) {
     const originalBookmarks = [...bookmarks];
-    // update the state immediately for responsiveness
     bookmarks = bookmarks.map((b) => {
       if (b.id === id) {
         return { ...b, title: newTitle, updated_at: new Date().toISOString() };
@@ -308,13 +287,12 @@
       }
     } catch (error: any) {
       console.error("failed to update bookmark:", error);
-      bookmarks = originalBookmarks; // revert on error
+      bookmarks = originalBookmarks;
     }
   }
 
   async function handleEditUrl(id: number, newUrl: string) {
     const originalBookmarks = [...bookmarks];
-    // update the state immediately
     bookmarks = bookmarks.map((b) => {
       if (b.id === id) {
         return { ...b, url: newUrl, updated_at: new Date().toISOString() };
@@ -331,7 +309,7 @@
       }
     } catch (error: any) {
       console.error("failed to update bookmark:", error);
-      bookmarks = originalBookmarks; // revert on error
+      bookmarks = originalBookmarks;
     }
   }
 
@@ -354,11 +332,9 @@
     if (bookmarkIndex === -1) return;
 
     const originalFolderId = bookmarks[bookmarkIndex].folder_id;
-    // prevent unnecessary updates if dropped onto the same folder
     if (originalFolderId === targetFolderId) return;
 
     const originalBookmarks = [...bookmarks];
-    // update state immediately
     bookmarks = bookmarks.map((b) =>
       b.id === bookmarkId
         ? {
@@ -383,13 +359,12 @@
       }
     } catch (error: any) {
       console.error("failed to move bookmark:", error);
-      bookmarks = originalBookmarks; // revert on error
+      bookmarks = originalBookmarks;
     }
   }
 
-  // --- drag and drop handlers ---
   function handleDragOver(event: DragEvent) {
-    event.preventDefault(); // necessary to allow drop
+    event.preventDefault();
     if (event.dataTransfer) {
       event.dataTransfer.dropEffect = "move";
     }
@@ -398,7 +373,7 @@
   function handleDrop(event: DragEvent, targetFolderId: number | null) {
     event.preventDefault();
     const bookmarkIdStr = event.dataTransfer?.getData("text/plain");
-    dragOverFolderId = null; // clear visual feedback
+    dragOverFolderId = null;
     if (!bookmarkIdStr) return;
 
     const bookmarkId = parseInt(bookmarkIdStr, 10);
@@ -412,18 +387,14 @@
   }
 
   function handleFolderDragLeave(event: DragEvent) {
-    // check if the mouse is leaving the drop zone element entirely
     const currentTarget = event.currentTarget as HTMLElement;
     const relatedTarget = event.relatedTarget as Node;
-    // if relatedTarget is null or not contained within currentTarget, clear the highlight
     if (!relatedTarget || !currentTarget.contains(relatedTarget)) {
       dragOverFolderId = null;
     }
   }
-  // --- end drag and drop handlers ---
 
   $effect(() => {
-    // automatically turn off editing mode if bookmarks list becomes empty
     if (bookmarks.length === 0) {
       editingBookmarks = false;
     }
@@ -431,7 +402,6 @@
 
   async function handleCreateFolder() {
     isCreatingFolder = false;
-    // create folder in the database
     const { data: newFolderData, error: insertError } = await supabase
       .from("folders")
       .insert([
@@ -491,10 +461,13 @@
     console.log("gemini response:", data.choices[0].message.content);
     return parseInt(data.choices[0].message.content);
   }
+
+  function selectFolder(id: number) {
+    currentSelectedFolderId = id;
+  }
 </script>
 
 <main class="p-6 flex flex-col gap-3 font-jetbrains-mono min-h-screen">
-  <!-- header remains the same -->
   <header class="flex gap-2 items-center font-jetbrains-mono flex-shrink-0">
     <ArrowRight size="15" /> BOOKMARKS
     <button
@@ -521,7 +494,6 @@
     </button>
   </header>
 
-  <!-- search bar remains the same -->
   <search
     class="w-full flex items-center gap-3 border border-gray-300 px-2.5 py-2 pl-3 mb-1 group flex-shrink-0"
   >
@@ -561,21 +533,8 @@
         <Sparkles size={18} color="blue" class="opacity-60" />
       {/if}
     {/if}
-    <!-- folder select dropdown is less useful now, hide or remove? let's hide it for now -->
-    <!--
-    <select
-      bind:value={currentSelectedFolderId}
-      class="ml-2 flex-shrink-0 p-1 border border-gray-300 rounded hidden sm:block"
-    >
-      <option value={null}>Uncategorized</option>
-      {#each folders as folder}
-        <option value={folder.id}>{folder.name}</option>
-      {/each}
-    </select>
-     -->
   </search>
 
-  <!-- errors and loading indicators -->
   {#if createError}
     <p class="text-red-500 text-sm mb-2 flex-shrink-0">{createError}</p>
   {/if}
@@ -594,14 +553,11 @@
       <p class="flex-shrink-0">Adding bookmark...</p>
     {/if}
 
-    <!-- main content area: sidebar + bookmarks list -->
     <div
       id="separated"
       class="grid grid-cols-[auto_1fr] gap-6 flex-grow min-h-0"
     >
-      <!-- sidebar -->
-      <folders class="flex flex-col gap-1 font-medium w-62 flex-shrink-0 pr-4">
-        <!-- uncategorized button -->
+      <folders class="flex flex-col gap-1 font-medium w-61 flex-shrink-0 pr-4">
         <button
           id="folder-uncategorized"
           class="{currentSelectedFolderId === null
@@ -623,25 +579,17 @@
           Uncategorized
         </button>
 
-        <!-- fetched folders -->
         {#each folders as folder (folder.id)}
-          <button
-            id="folder-{folder.id}"
-            class="{currentSelectedFolderId === folder.id
-              ? 'font-semibold bg-gray-100'
-              : ''} flex items-center gap-2 p-1.5 px-2.5 hover:bg-gray-100 w-full text-left"
-            ondragover={handleDragOver}
-            ondrop={(e) => handleDrop(e, folder.id)}
-            ondragenter={() => handleFolderDragEnter(folder.id)}
-            ondragleave={handleFolderDragLeave}
-            class:bg-blue-50={dragOverFolderId === folder.id}
-            style="color: {folder.color || 'inherit'};"
-            onmousedown={() => {
-              currentSelectedFolderId = folder.id;
-            }}
-            ><Folder size={16} strokeWidth={2.75} />
-            {folder.name}</button
-          >
+          <Folder
+            {folder}
+            {currentSelectedFolderId}
+            {dragOverFolderId}
+            {handleDragOver}
+            {handleDrop}
+            {handleFolderDragEnter}
+            {handleFolderDragLeave}
+            {selectFolder}
+          />
         {/each}
         <button
           id="new-folder"
@@ -664,7 +612,7 @@
                   if (newFolderName.trim()) {
                     handleCreateFolder();
                   }
-                  isCreatingFolder = false; // close input on enter
+                  isCreatingFolder = false;
                 } else if (e.key === "Escape") {
                   isCreatingFolder = false;
                   newFolderName = "";
@@ -677,7 +625,6 @@
         </button>
       </folders>
 
-      <!-- bookmarks list for the selected folder -->
       <div class="flex flex-col gap-1 overflow-y-auto">
         {#if displayedBookmarks.length > 0}
           {#each displayedBookmarks as bookmark (bookmark.id)}
