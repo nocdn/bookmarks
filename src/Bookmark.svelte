@@ -215,7 +215,7 @@
 <bookmark
   class="flex items-center px-0.5 group transition-opacity duration-150 {isDragging
     ? 'opacity-50'
-    : ''}"
+    : ''} font-geist-mono font-medium motion-preset-blur-up-sm"
   onmouseenter={() => (hoveringBookmark = true)}
   onmouseleave={() => (hoveringBookmark = false)}
   onfocusin={() => (hoveringBookmark = true)}

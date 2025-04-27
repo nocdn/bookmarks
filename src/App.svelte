@@ -6,6 +6,7 @@
     Folder,
     Inbox,
     HeartCrack,
+    Sparkles,
   } from "lucide-svelte";
   import Bookmark from "./Bookmark.svelte";
   import { onMount } from "svelte";
@@ -50,6 +51,9 @@
   let isCreatingFolder = $state(false);
   let newFolderName = $state("");
   let newFolderColor = $state("rgb(0, 0, 0)");
+  let showingLLMicon = $state(false);
+
+  const geminiApiKey = import.meta.env.VITE_GEMINI_API_KEY;
 
   function decodeHtmlEntities(text: string): string {
     if (typeof document !== "undefined") {
@@ -119,6 +123,7 @@
         if (pageTitle.endsWith("/")) pageTitle = pageTitle.slice(0, -1);
         faviconRgbCodeString = "rgb(0, 0, 0)";
       }
+      getLLMfolder(url);
       const { data: newBookmarkData, error: insertError } = await supabase
         .from("bookmarks")
         .insert([
@@ -176,7 +181,7 @@
     }
   }
 
-  function handleSearchInputKeydown(event: KeyboardEvent) {
+  async function handleSearchInputKeydown(event: KeyboardEvent) {
     if (event.key === "Enter" && !event.shiftKey) {
       event.preventDefault();
       if (isAddingMultiple) {
@@ -192,11 +197,31 @@
         if (value) {
           createBookmark(value);
         }
-        // searchInputValue = ""; // cleared inside createBookmark if successful
       }
-      // don't clear here, let createBookmark handle it on success
+    }
+    if (event.key === "Enter" && event.altKey) {
+      event.preventDefault();
+      console.log("using LLM to get folder id");
+      const value = searchInputValue.trim();
+      if (value) {
+        currentSelectedFolderId = await getLLMfolder(value);
+      }
     }
   }
+
+  document.addEventListener("keydown", (event) => {
+    if (
+      event.key === "Alt" &&
+      searchInputElement?.contains(document.activeElement)
+    ) {
+      showingLLMicon = true;
+    }
+  });
+  document.addEventListener("keyup", (event) => {
+    if (event.key === "Alt") {
+      showingLLMicon = false;
+    }
+  });
 
   function fuzzyMatch(text: string, pattern: string): boolean {
     if (!pattern) return true; // match if pattern is empty
@@ -318,6 +343,7 @@
       return;
     }
     folders = data ?? [];
+    console.log("fetched folders:", folders);
   }
 
   async function moveBookmarkToFolder(
@@ -401,8 +427,6 @@
     if (bookmarks.length === 0) {
       editingBookmarks = false;
     }
-
-    console.log("newFolderName:", newFolderName);
   });
 
   async function handleCreateFolder() {
@@ -423,6 +447,49 @@
     }
     console.log("created folder:", newFolderData);
     fetchFolders();
+  }
+
+  async function getLLMfolder(link: string) {
+    const foldersString = JSON.stringify(
+      folders.map((f) => ({ id: f.id, name: f.name })),
+      null,
+      2
+    );
+    const systemPrompt = `The user will provide a url, then you will respond with JUST the id of the folder you think it should go into. Respond with no formatting, no markdown, no quotes, just the folder ID as the text. The available folders and folder ID's:\n${foldersString}`;
+
+    const response = await fetch(
+      "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${geminiApiKey}`,
+        },
+        body: JSON.stringify({
+          model: "gemini-2.0-flash",
+          messages: [
+            {
+              role: "system",
+              content: systemPrompt,
+            },
+            { role: "user", content: link },
+          ],
+        }),
+      }
+    );
+
+    if (!response.ok) {
+      const errorData = await response
+        .json()
+        .catch(() => ({ detail: "failed to parse error response" }));
+      throw new Error(
+        errorData.detail ||
+          `proxy request failed with status: ${response.status}`
+      );
+    }
+    const data = await response.json();
+    console.log("gemini response:", data.choices[0].message.content);
+    return parseInt(data.choices[0].message.content);
   }
 </script>
 
@@ -456,7 +523,7 @@
 
   <!-- search bar remains the same -->
   <search
-    class="w-full flex items-center gap-3 border-[1.5px] border-gray-300 px-2.5 py-2 pl-3 mb-1 group flex-shrink-0"
+    class="w-full flex items-center gap-3 border border-gray-300 px-2.5 py-2 pl-3 mb-1 group flex-shrink-0"
   >
     {#if isAddingMultiple}
       <PlusCircle
@@ -490,6 +557,9 @@
         onkeydown={handleSearchInputKeydown}
         disabled={isCreating}
       />
+      {#if showingLLMicon}
+        <Sparkles size={18} color="blue" class="opacity-60" />
+      {/if}
     {/if}
     <!-- folder select dropdown is less useful now, hide or remove? let's hide it for now -->
     <!--
@@ -536,7 +606,7 @@
           id="folder-uncategorized"
           class="{currentSelectedFolderId === null
             ? 'font-semibold bg-gray-100'
-            : ''} flex items-center gap-2 p-1.5 px-2.5 rounded-md hover:bg-gray-100 w-full text-left"
+            : ''} flex items-center gap-2 p-1.5 px-2.5 hover:bg-gray-100 w-full text-left"
           ondragover={handleDragOver}
           ondrop={(e) => handleDrop(e, null)}
           ondragenter={() => handleFolderDragEnter("uncategorized")}
@@ -559,7 +629,7 @@
             id="folder-{folder.id}"
             class="{currentSelectedFolderId === folder.id
               ? 'font-semibold bg-gray-100'
-              : ''} flex items-center gap-2 p-1.5 px-2.5 rounded-md hover:bg-gray-100 w-full text-left"
+              : ''} flex items-center gap-2 p-1.5 px-2.5 hover:bg-gray-100 w-full text-left"
             ondragover={handleDragOver}
             ondrop={(e) => handleDrop(e, folder.id)}
             ondragenter={() => handleFolderDragEnter(folder.id)}
@@ -569,10 +639,7 @@
             onmousedown={() => {
               currentSelectedFolderId = folder.id;
             }}
-            ><Folder
-              size={16}
-              strokeWidth={currentSelectedFolderId === folder.id ? 3 : 2.5}
-            />
+            ><Folder size={16} strokeWidth={2.75} />
             {folder.name}</button
           >
         {/each}
@@ -623,12 +690,16 @@
             />
           {/each}
         {:else if searchInputValue.trim() !== ""}
-          <p class="text-gray-500 italic px-1">
-            No bookmarks match your search in this folder.
+          <p
+            class="text-gray-500 px-1 font-medium font-geist-mono motion-preset-blur-up-sm"
+          >
+            no bookmarks match your search in this folder.
           </p>
         {:else}
-          <p class="text-gray-500 font-geist-mono px-1 flex items-center gap-2">
-            empty <HeartCrack size={14} strokeWidth={2.5} />
+          <p
+            class="text-gray-500 font-medium font-geist-mono px-1 flex items-center gap-2 motion-preset-blur-up-sm"
+          >
+            no bookmarks
           </p>
         {/if}
       </div>
