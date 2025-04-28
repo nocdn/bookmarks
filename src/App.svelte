@@ -10,7 +10,7 @@
   } from "lucide-svelte";
   import Bookmark from "./Bookmark.svelte";
   import Folder from "./Folder.svelte";
-  import { onMount } from "svelte";
+  import { onMount, tick } from "svelte";
   import { createClient } from "@supabase/supabase-js";
 
   interface BookmarkType {
@@ -399,13 +399,14 @@
     if (bookmarks.length === 0) {
       editingBookmarks = false;
     }
-
-    if (isCreatingFolder) {
-      newFolderNameElement.focus();
-      newFolderNameElement.select();
-      console.log("focusing new folder name input");
-    }
   });
+
+  async function openNewFolderInput() {
+    isCreatingFolder = true;
+    await tick();
+    newFolderNameElement.focus();
+    console.log("focusing new folder name input");
+  }
 
   async function handleCreateFolder() {
     isCreatingFolder = false;
@@ -618,17 +619,15 @@
         <button
           id="new-folder"
           class="mr-auto p-1.5 px-2.5 pl-[12.5px] text-gray-500 hover:bg-gray-100 rounded-md flex items-center gap-2"
-          onmousedown={() => {
-            if (!isCreatingFolder) {
-              isCreatingFolder = !isCreatingFolder;
-            }
+          onclick={() => {
+            openNewFolderInput();
           }}
         >
           {#if isCreatingFolder}
             <input
               type="text"
               class="w-full focus:outline-none font-medium"
-              placeholder="New folder name"
+              placeholder="new folder name"
               bind:value={newFolderName}
               bind:this={newFolderNameElement}
               onkeydown={(e) => {

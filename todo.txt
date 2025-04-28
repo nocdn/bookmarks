@@ -1,4 +1,1 @@
-- add nested folders
-- add automatic categorization with gemini 2.0 flash lite
-- pressing tab should focus and open the folder selector then pressing enter should select the folder, and submit the bookmark
-- only add margin between folders if they are open
+- pressing anywhere outside the new folder input element should close the input
