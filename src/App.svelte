@@ -38,6 +38,7 @@
   const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
   let searchInputElement: HTMLInputElement;
+  let newFolderNameElement: HTMLInputElement;
   let searchInputValue: string = $state("");
   let bookmarks: Array<BookmarkType> = $state([]);
   let editingBookmarks: boolean = $state(false);
@@ -398,6 +399,12 @@
     if (bookmarks.length === 0) {
       editingBookmarks = false;
     }
+
+    if (isCreatingFolder) {
+      newFolderNameElement.focus();
+      newFolderNameElement.select();
+      console.log("focusing new folder name input");
+    }
   });
 
   async function handleCreateFolder() {
@@ -416,6 +423,7 @@
       return;
     }
     console.log("created folder:", newFolderData);
+    newFolderName = "";
     fetchFolders();
   }
 
@@ -464,6 +472,21 @@
 
   function selectFolder(id: number) {
     currentSelectedFolderId = id;
+  }
+
+  async function handleDeleteFolder(id: number) {
+    const originalFolders = [...folders];
+    folders = folders.filter((f) => f.id !== id);
+    try {
+      const { error } = await supabase.from("folders").delete().match({ id });
+      if (error) {
+        console.error("delete failed:", error);
+        folders = originalFolders;
+      }
+    } catch (error: any) {
+      console.error("delete failed:", error);
+      folders = originalFolders;
+    }
   }
 </script>
 
@@ -557,12 +580,12 @@
       id="separated"
       class="grid grid-cols-[auto_1fr] gap-6 flex-grow min-h-0"
     >
-      <folders class="flex flex-col gap-1 font-medium w-61 flex-shrink-0 pr-4">
+      <folders class="flex flex-col gap-1 font-medium flex-shrink-0 pr-4">
         <button
           id="folder-uncategorized"
           class="{currentSelectedFolderId === null
-            ? 'font-semibold bg-gray-100'
-            : ''} flex items-center gap-2 p-1.5 px-2.5 hover:bg-gray-100 w-full text-left"
+            ? 'font-semibold opacity-100'
+            : ''} opacity-50 flex items-center gap-2 p-1.5 px-2.5 w-full text-left cursor-pointer transition-opacity"
           ondragover={handleDragOver}
           ondrop={(e) => handleDrop(e, null)}
           ondragenter={() => handleFolderDragEnter("uncategorized")}
@@ -589,6 +612,7 @@
             {handleFolderDragEnter}
             {handleFolderDragLeave}
             {selectFolder}
+            onDeleteFolder={handleDeleteFolder}
           />
         {/each}
         <button
@@ -606,6 +630,7 @@
               class="w-full focus:outline-none font-medium"
               placeholder="New folder name"
               bind:value={newFolderName}
+              bind:this={newFolderNameElement}
               onkeydown={(e) => {
                 if (e.key === "Enter") {
                   console.log("creating folder with name:", newFolderName);
