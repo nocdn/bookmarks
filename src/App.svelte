@@ -618,7 +618,7 @@
         {/each}
         <button
           id="new-folder"
-          class="mr-auto p-1.5 px-2.5 pl-[12.5px] text-gray-500 hover:bg-gray-100 rounded-md flex items-center gap-2"
+          class="mr-auto p-1.5 px-2.5 pl-[12.5px] text-gray-500 hover:bg-gray-50 rounded-md flex items-center gap-2"
           onclick={() => {
             openNewFolderInput();
           }}

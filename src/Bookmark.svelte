@@ -15,7 +15,7 @@
       url: string;
       title: string;
       created_at: string;
-      faviconColor?: string;
+      // faviconColor?: string; // removed as it's not used for the icon anymore
     };
     editing?: boolean;
     onDelete?: (id: number) => void;
@@ -54,9 +54,22 @@
     return url.replace(/^https?:\/\//, "");
   }
 
-  let id: number = bookmark.id;
-  let dominantColor: string = bookmark.faviconColor || "rgb(0, 0, 0)";
+  function getDomain(url: string): string {
+    try {
+      // using the built-in url object to easily get the hostname
+      const parsedUrl = new URL(url);
+      return parsedUrl.hostname;
+    } catch (e) {
+      console.warn("Could not parse URL for domain:", url, e);
+      // fallback if the url is strange - try to extract something that looks like a domain
+      const domainMatch = url.match(
+        /^(?:https?:\/\/)?(?:[^@\n]+@)?(?:www\.)?([^:\/\n?]+)/im
+      );
+      return domainMatch ? domainMatch[1] : "";
+    }
+  }
 
+  let id: number = bookmark.id;
   let holdingOptionKey = $state(false);
   let hoveringBookmark = $state(false);
   let editingTitle = $state(false);
@@ -197,7 +210,7 @@
 
   function handleDragStart(event: DragEvent) {
     if (editingTitle || editingUrl) {
-      event.preventDefault(); // Don't allow dragging while editing
+      event.preventDefault();
       return;
     }
     if (event.dataTransfer) {
@@ -213,7 +226,7 @@
 </script>
 
 <bookmark
-  class="flex items-center px-0.5 group transition-opacity duration-150 {isDragging
+  class="flex items-center px-0.5 group max-w-full transition-opacity duration-150 {isDragging
     ? 'opacity-50'
     : ''} font-geist-mono font-medium motion-preset-blur-up-sm"
   onmouseenter={() => (hoveringBookmark = true)}
@@ -226,11 +239,15 @@
   ondragstart={handleDragStart}
   ondragend={handleDragEnd}
 >
-  <div
-    class="color-dot mr-2.5"
-    style="background-color: {dominantColor};"
+  <img
+    src={`https://www.google.com/s2/favicons?domain=${getDomain(bookmark.url)}&sz=32`}
+    alt=""
+    class="favicon mr-2 flex-shrink-0"
+    width="14"
+    height="14"
+    loading="lazy"
     title={stripProtocol(bookmark.url)}
-  ></div>
+  />
 
   {#if editingTitle}
     <input
@@ -248,7 +265,7 @@
   {:else}
     <a
       href={bookmark.url}
-      class="flex-auto font-[450] px-0.5 mr-auto truncate outline-none {holdingOptionKey
+      class="flex-auto font-[450] min-w-fit px-0.5 mr-auto truncate outline-none {holdingOptionKey
         ? 'cursor-text'
         : ''}"
       onclick={(e) => {
@@ -286,11 +303,11 @@
       />
     {:else}
       <span
+        role="button"
+        tabindex="0"
         class="text-gray-500 px-0.5 outline-none {holdingOptionKey
           ? 'cursor-text'
           : ''}"
-        role="button"
-        tabindex="0"
         onmousedown={(e) => {
           e.stopPropagation();
           e.preventDefault();
@@ -333,12 +350,14 @@
 </bookmark>
 
 <style>
-  .color-dot {
-    width: 13px;
-    height: 13px;
-    border-radius: 50%;
-    display: inline-block;
-    flex-shrink: 0;
+  /* updated style for the favicon image */
+  .favicon {
+    width: 15px; /* standard favicon size */
+    height: 15px; /* standard favicon size */
+    display: inline-block; /* keep it inline */
+    object-fit: contain; /* make sure the icon fits nicely */
+    vertical-align: middle; /* align nicely with the text */
+    border-radius: 3px;
   }
   bookmark[draggable="true"] {
     cursor: grab;
