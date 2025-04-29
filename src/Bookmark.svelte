@@ -15,7 +15,6 @@
       url: string;
       title: string;
       created_at: string;
-      // faviconColor?: string; // removed as it's not used for the icon anymore
     };
     editing?: boolean;
     onDelete?: (id: number) => void;
@@ -56,12 +55,10 @@
 
   function getDomain(url: string): string {
     try {
-      // using the built-in url object to easily get the hostname
       const parsedUrl = new URL(url);
       return parsedUrl.hostname;
     } catch (e) {
       console.warn("Could not parse URL for domain:", url, e);
-      // fallback if the url is strange - try to extract something that looks like a domain
       const domainMatch = url.match(
         /^(?:https?:\/\/)?(?:[^@\n]+@)?(?:www\.)?([^:\/\n?]+)/im
       );
@@ -123,7 +120,9 @@
     };
 
     const handleBlur = () => {
-      submitEdit();
+      if (!editingUrl) {
+        submitEdit();
+      }
     };
 
     const unbindKeyDown = on(titleEditingElement!, "keydown", handleKeyDown);
@@ -139,6 +138,8 @@
   function cancelEdit() {
     editingTitle = false;
     editingUrl = false;
+    newTitle = bookmark.title;
+    newUrl = bookmark.url;
     cleanupEditKeyListeners?.();
   }
 
@@ -148,19 +149,10 @@
     const newTitleTrimmed = newTitle.trim();
     if (newTitleTrimmed && newTitleTrimmed !== bookmark.title) {
       onEditTitle(id, newTitleTrimmed);
+    } else {
+      newTitle = bookmark.title;
     }
     editingTitle = false;
-    cleanupEditKeyListeners?.();
-  }
-
-  function submitUrlEdit() {
-    if (!editingUrl) return;
-
-    const newUrlTrimmed = newUrl.trim();
-    if (newUrlTrimmed && newUrlTrimmed !== bookmark.url) {
-      onEditUrl(id, newUrlTrimmed);
-    }
-    editingUrl = false;
     cleanupEditKeyListeners?.();
   }
 
@@ -190,7 +182,9 @@
     };
 
     const handleBlur = () => {
-      submitUrlEdit();
+      if (!editingTitle) {
+        submitUrlEdit();
+      }
     };
 
     const unbindKeyDown = on(urlEditingElement!, "keydown", handleKeyDown);
@@ -203,10 +197,18 @@
     };
   }
 
-  let urlEditingFieldWidth = $state(0);
-  $effect(() => {
-    urlEditingFieldWidth = Math.max(100, newUrl.length * 8.66); // approx width + min width
-  });
+  function submitUrlEdit() {
+    if (!editingUrl) return;
+
+    const newUrlTrimmed = newUrl.trim();
+    if (newUrlTrimmed && newUrlTrimmed !== bookmark.url) {
+      onEditUrl(id, newUrlTrimmed);
+    } else {
+      newUrl = bookmark.url;
+    }
+    editingUrl = false;
+    cleanupEditKeyListeners?.();
+  }
 
   function handleDragStart(event: DragEvent) {
     if (editingTitle || editingUrl) {
@@ -226,9 +228,9 @@
 </script>
 
 <bookmark
-  class="flex items-center px-0.5 group max-w-full transition-opacity duration-150 {isDragging
+  class="grid grid-cols-[5%_45%_35%_15%] items-center px-0.5 group max-w-full transition-opacity duration-150 {isDragging
     ? 'opacity-50'
-    : ''} font-geist-mono font-medium motion-preset-blur-up-sm"
+    : ''} font-geist-mono font-medium motion-preset-blur-up-sm overflow-hidden"
   onmouseenter={() => (hoveringBookmark = true)}
   onmouseleave={() => (hoveringBookmark = false)}
   onfocusin={() => (hoveringBookmark = true)}
@@ -254,8 +256,7 @@
       type="text"
       bind:value={newTitle}
       bind:this={titleEditingElement}
-      class="flex-auto font-[450] bg-transparent focus:outline-blue-300 focus:outline-[1.5px] ml-0.5 mr-auto p-0.5"
-      aria-label="Edit bookmark title"
+      class="flex-grow flex-shrink min-w-0 max-w-[45%] truncate font-[450] bg-transparent focus:outline-blue-300 focus:outline-[1.5px] ml-0.5 mr-auto p-0.5"
       onclick={(e) => {
         e.stopPropagation();
       }}
@@ -265,7 +266,7 @@
   {:else}
     <a
       href={bookmark.url}
-      class="flex-auto font-[450] min-w-fit px-0.5 mr-auto truncate outline-none {holdingOptionKey
+      class="flex-grow flex-shrink min-w-0 max-w-full truncate font-[450] px-0.5 mr-auto outline-none {holdingOptionKey
         ? 'cursor-text'
         : ''}"
       onclick={(e) => {
@@ -282,19 +283,21 @@
         }
       }}
       tabindex="-1"
+      title={bookmark.title}
     >
       {bookmark.title}
     </a>
   {/if}
 
-  <div class="font-mono text-sm ml-2 flex-shrink-0 hidden sm:inline">
+  <div
+    class="font-mono text-sm ml-2 flex flex-shrink min-w-0 items-center sm:inline overflow-hidden flex-nowrap"
+  >
     {#if editingUrl}
       <input
         type="text"
         bind:value={newUrl}
         bind:this={urlEditingElement}
-        class="text-gray-500 focus:outline-blue-300 focus:outline-[1.5px] p-0.5"
-        style="width: {urlEditingFieldWidth}px;"
+        class="flex-1 min-w-0 truncate text-gray-500 focus:outline-blue-300 focus:outline-[1.5px] p-0.5"
         aria-label="Edit bookmark url"
         onclick={(e) => {
           e.stopPropagation();
@@ -305,7 +308,7 @@
       <span
         role="button"
         tabindex="0"
-        class="text-gray-500 px-0.5 outline-none {holdingOptionKey
+        class="flex-1 min-w-0 w-12 truncate text-gray-500 px-0.5 outline-none {holdingOptionKey
           ? 'cursor-text'
           : ''}"
         onmousedown={(e) => {
@@ -322,14 +325,15 @@
             startUrlEdit();
           }
         }}
+        title={stripProtocol(bookmark.url)}
       >
         [{stripProtocol(bookmark.url)}]
       </span>
     {/if}
-    <span class="text-gray-400 font-semibold ml-2">
-      {formatUkDate(bookmark.created_at)}
-    </span>
   </div>
+  <p class="text-gray-400 font-semibold ml-2 flex-shrink-0 whitespace-nowrap">
+    {formatUkDate(bookmark.created_at)}
+  </p>
 
   {#if editing || (holdingOptionKey && hoveringBookmark)}
     <div class="flex items-center gap-1 ml-2 flex-shrink-0 pl-1">
@@ -350,13 +354,12 @@
 </bookmark>
 
 <style>
-  /* updated style for the favicon image */
   .favicon {
-    width: 15px; /* standard favicon size */
-    height: 15px; /* standard favicon size */
-    display: inline-block; /* keep it inline */
-    object-fit: contain; /* make sure the icon fits nicely */
-    vertical-align: middle; /* align nicely with the text */
+    width: 15px;
+    height: 15px;
+    display: inline-block;
+    object-fit: contain;
+    vertical-align: middle;
     border-radius: 3px;
   }
   bookmark[draggable="true"] {
