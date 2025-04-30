@@ -2,6 +2,7 @@
   import { X } from "lucide-svelte";
   import { onMount, tick } from "svelte";
   import { on } from "svelte/events";
+  import EditIcon from "./EditIcon.svelte";
 
   let {
     bookmark,
@@ -9,6 +10,7 @@
     onDelete = (id: number) => {},
     onEditTitle = (id: number, newTitle: string) => {},
     onEditUrl = (id: number, newUrl: string) => {},
+    onEditBookmark = (id: number, newTitle: string, newUrl: string) => {},
   } = $props<{
     bookmark: {
       id: number;
@@ -20,6 +22,7 @@
     onDelete?: (id: number) => void;
     onEditTitle?: (id: number, newTitle: string) => void;
     onEditUrl?: (id: number, newUrl: string) => void;
+    onEditBookmark?: (id: number, newTitle: string, newUrl: string) => void;
   }>();
 
   function getOrdinal(day: number): string {
@@ -69,10 +72,11 @@
   let id: number = bookmark.id;
   let holdingOptionKey = $state(false);
   let hoveringBookmark = $state(false);
-  let editingTitle = $state(false);
   let newTitle = $state(bookmark.title);
   let titleEditingElement = $state<HTMLInputElement | null>(null);
   let isDragging = $state(false);
+
+  let isEditing = $state(false);
 
   let cleanupEditKeyListeners: (() => void) | null = null;
 
@@ -94,124 +98,29 @@
     return () => {
       unbindKeydown();
       unbindKeyup();
-      cleanupEditKeyListeners?.();
     };
   });
 
-  async function startEdit() {
-    if (editingTitle || editingUrl) return;
-
-    newTitle = bookmark.title;
-    editingTitle = true;
-    await tick();
-
-    titleEditingElement?.focus();
-    titleEditingElement?.select();
-
-    cleanupEditKeyListeners?.();
-
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Enter") {
-        event.preventDefault();
-        submitEdit();
-      } else if (event.key === "Escape") {
-        cancelEdit();
-      }
-    };
-
-    const handleBlur = () => {
-      if (!editingUrl) {
-        submitEdit();
-      }
-    };
-
-    const unbindKeyDown = on(titleEditingElement!, "keydown", handleKeyDown);
-    const unbindBlur = on(titleEditingElement!, "blur", handleBlur);
-
-    cleanupEditKeyListeners = () => {
-      unbindKeyDown();
-      unbindBlur();
-      cleanupEditKeyListeners = null;
-    };
-  }
-
   function cancelEdit() {
-    editingTitle = false;
-    editingUrl = false;
+    isEditing = false;
     newTitle = bookmark.title;
     newUrl = bookmark.url;
     cleanupEditKeyListeners?.();
   }
 
-  function submitEdit() {
-    if (!editingTitle) return;
-
-    const newTitleTrimmed = newTitle.trim();
-    if (newTitleTrimmed && newTitleTrimmed !== bookmark.title) {
-      onEditTitle(id, newTitleTrimmed);
-    } else {
-      newTitle = bookmark.title;
-    }
-    editingTitle = false;
-    cleanupEditKeyListeners?.();
-  }
-
-  let editingUrl = $state(false);
   let newUrl = $state(bookmark.url);
   let urlEditingElement = $state<HTMLInputElement | null>(null);
 
-  async function startUrlEdit() {
-    if (editingUrl || editingTitle) return;
-
-    newUrl = bookmark.url;
-    editingUrl = true;
-    await tick();
-
-    urlEditingElement?.focus();
-    urlEditingElement?.select();
-
-    cleanupEditKeyListeners?.();
-
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Enter") {
-        event.preventDefault();
-        submitUrlEdit();
-      } else if (event.key === "Escape") {
-        cancelEdit();
-      }
-    };
-
-    const handleBlur = () => {
-      if (!editingTitle) {
-        submitUrlEdit();
-      }
-    };
-
-    const unbindKeyDown = on(urlEditingElement!, "keydown", handleKeyDown);
-    const unbindBlur = on(urlEditingElement!, "blur", handleBlur);
-
-    cleanupEditKeyListeners = () => {
-      unbindKeyDown();
-      unbindBlur();
-      cleanupEditKeyListeners = null;
-    };
-  }
-
-  function submitUrlEdit() {
-    if (!editingUrl) return;
-
+  function submitBookmarkEdit() {
     const newUrlTrimmed = newUrl.trim();
-    if (newUrlTrimmed && newUrlTrimmed !== bookmark.url) {
-      onEditUrl(id, newUrlTrimmed);
-    } else {
-      newUrl = bookmark.url;
-    }
-    editingUrl = false;
+    const newTitleTrimmed = newTitle.trim();
+    onEditBookmark(id, newTitleTrimmed, newUrlTrimmed);
+    isEditing = false;
     cleanupEditKeyListeners?.();
   }
 
   function handleDragStart(event: DragEvent) {
-    if (editingTitle || editingUrl) {
+    if (isEditing) {
       event.preventDefault();
       return;
     }
@@ -225,133 +134,168 @@
   function handleDragEnd() {
     isDragging = false;
   }
+
+  function formatDate(dateString: string): string {
+    if (!dateString) return "";
+    try {
+      const date = new Date(dateString);
+      const day = date.getDate();
+      const dayOrdinal = getOrdinal(day);
+      const monthName = date.toLocaleString("en-GB", { month: "long" });
+      const year = date.getFullYear();
+      return `${dayOrdinal} ${monthName} ${year}`;
+    } catch (e) {
+      console.error("Error formatting date:", e);
+      return "Invalid Date";
+    }
+  }
+
+  $effect(() => {
+    console.log("activeElement", document.activeElement);
+  });
 </script>
 
-<bookmark
-  class="grid grid-cols-[5%_45%_35%_15%] items-center px-0.5 group max-w-full transition-opacity duration-150 {isDragging
-    ? 'opacity-50'
-    : ''} font-geist-mono font-medium motion-preset-blur-up-sm overflow-hidden"
-  onmouseenter={() => (hoveringBookmark = true)}
-  onmouseleave={() => (hoveringBookmark = false)}
-  onfocusin={() => (hoveringBookmark = true)}
-  onfocusout={() => (hoveringBookmark = false)}
-  role="button"
-  tabindex="0"
-  draggable="true"
-  ondragstart={handleDragStart}
-  ondragend={handleDragEnd}
->
-  <img
-    src={`https://www.google.com/s2/favicons?domain=${getDomain(bookmark.url)}&sz=32`}
-    alt=""
-    class="favicon mr-2 flex-shrink-0"
-    width="14"
-    height="14"
-    loading="lazy"
-    title={stripProtocol(bookmark.url)}
-  />
-
-  {#if editingTitle}
-    <input
-      type="text"
-      bind:value={newTitle}
-      bind:this={titleEditingElement}
-      class="flex-grow flex-shrink min-w-0 max-w-[45%] truncate font-[450] bg-transparent focus:outline-blue-300 focus:outline-[1.5px] ml-0.5 mr-auto p-0.5"
-      onclick={(e) => {
-        e.stopPropagation();
-      }}
-      onmousedown={(e) => e.stopPropagation()}
-      data-1p-ignore
-    />
-  {:else}
-    <a
-      href={bookmark.url}
-      class="flex-grow flex-shrink min-w-0 max-w-full truncate font-[450] px-0.5 mr-auto outline-none {holdingOptionKey
-        ? 'cursor-text'
-        : ''}"
-      onclick={(e) => {
-        if (holdingOptionKey) {
-          e.preventDefault();
-          e.stopPropagation();
-          startEdit();
-        }
-      }}
-      onmousedown={(e) => {
-        if (holdingOptionKey) {
-          e.stopPropagation();
-          e.preventDefault();
-        }
-      }}
-      tabindex="-1"
-      title={bookmark.title}
-    >
-      {bookmark.title}
-    </a>
-  {/if}
-
-  <div
-    class="font-mono text-sm ml-2 flex flex-shrink min-w-0 items-center sm:inline overflow-hidden flex-nowrap"
-  >
-    {#if editingUrl}
+{#if isEditing}
+  <editing class="p-2 flex flex-col gap-2 border border-slate-200">
+    <div class="group">
+      <p
+        class="text-sm font-jetbrains-mono font-medium text-gray-500 group-focus-within:text-blue-500"
+      >
+        TITLE
+      </p>
+      <input
+        type="text"
+        bind:value={newTitle}
+        class="w-full p-0 focus:outline-none"
+        bind:this={titleEditingElement}
+        placeholder="Edit title"
+        autocomplete="off"
+        onkeydown={(e) => {
+          if (e.key === "Enter") {
+            e.preventDefault();
+            urlEditingElement?.focus();
+          } else if (e.key === "Escape") {
+            cancelEdit();
+          }
+        }}
+      />
+    </div>
+    <div class="group">
+      <p
+        class="text-sm font-jetbrains-mono text-gray-500 font-medium group-focus-within:text-blue-500"
+      >
+        LINK
+      </p>
       <input
         type="text"
         bind:value={newUrl}
+        class="w-full focus:outline-none"
         bind:this={urlEditingElement}
-        class="flex-1 min-w-0 truncate text-gray-500 focus:outline-blue-300 focus:outline-[1.5px] p-0.5"
-        aria-label="Edit bookmark url"
-        onclick={(e) => {
-          e.stopPropagation();
-        }}
-        onmousedown={(e) => e.stopPropagation()}
-      />
-    {:else}
-      <span
-        role="button"
-        tabindex="0"
-        class="flex-1 min-w-0 w-12 truncate text-gray-500 px-0.5 outline-none {holdingOptionKey
-          ? 'cursor-text'
-          : ''}"
-        onmousedown={(e) => {
-          e.stopPropagation();
-          e.preventDefault();
-          if (holdingOptionKey) {
-            startUrlEdit();
+        placeholder="Edit link"
+        autocomplete="off"
+        onkeydown={(e) => {
+          if (e.key === "Enter") {
+            console.log("enter pressed in url edit");
+            e.preventDefault();
+            submitBookmarkEdit();
+          } else if (e.key === "Escape") {
+            cancelEdit();
           }
         }}
+      />
+    </div>
+    <div class="flex items-end">
+      <p class="text-xs text-gray-400 mb-0.5">
+        {formatDate(bookmark.updated_at)}
+      </p>
+      <button
+        class="text-red-900 px-3 py-1 border border-gray-200 hover:border-red-500/30 text-sm cursor-pointer ml-auto"
+        onclick={cancelEdit}
+      >
+        CANCEL
+      </button>
+      <button
+        class="text-blue-800 px-3.5 py-1 border border-gray-200 hover:border-blue-500/40 text-sm cursor-pointer ml-2"
+        onclick={submitBookmarkEdit}
+      >
+        SAVE
+      </button>
+    </div>
+  </editing>
+{:else}
+  <bookmark
+    class="flex items-center px-0.5 group max-w-full transition-opacity duration-150 {isDragging
+      ? 'opacity-50'
+      : ''} font-geist-mono font-medium motion-preset-blur-up-sm overflow-hidden"
+    onmouseenter={() => (hoveringBookmark = true)}
+    onmouseleave={() => (hoveringBookmark = false)}
+    onfocusin={() => (hoveringBookmark = true)}
+    onfocusout={() => (hoveringBookmark = false)}
+    role="button"
+    tabindex="0"
+    draggable="true"
+    ondragstart={handleDragStart}
+    ondragend={handleDragEnd}
+  >
+    <div id="img-title" class="flex items-center flex-shrink-0">
+      <img
+        src={`https://www.google.com/s2/favicons?domain=${getDomain(bookmark.url)}&sz=32`}
+        alt=""
+        class="favicon mr-2 flex-shrink-0 mb-0.5"
+        width="14"
+        height="14"
+        loading="lazy"
+        title={stripProtocol(bookmark.url)}
+      />
+
+      <a
+        href={bookmark.url}
+        class="flex-grow flex-shrink min-w-0 max-w-full truncate font-[450] px-0.5 mr-auto outline-none {holdingOptionKey
+          ? 'cursor-text'
+          : ''}"
         onclick={(e) => {
           if (holdingOptionKey) {
             e.preventDefault();
             e.stopPropagation();
-            startUrlEdit();
           }
         }}
-        title={stripProtocol(bookmark.url)}
-      >
-        [{stripProtocol(bookmark.url)}]
-      </span>
-    {/if}
-  </div>
-  <p class="text-gray-400 font-semibold ml-2 flex-shrink-0 whitespace-nowrap">
-    {formatUkDate(bookmark.created_at)}
-  </p>
-
-  {#if editing || (holdingOptionKey && hoveringBookmark)}
-    <div class="flex items-center gap-1 ml-2 flex-shrink-0 pl-1">
-      <button
-        title="Delete bookmark"
         onmousedown={(e) => {
-          e.stopPropagation();
-          e.preventDefault();
-          onDelete(id);
+          if (holdingOptionKey) {
+            e.stopPropagation();
+            e.preventDefault();
+          }
         }}
-        class="text-red-500 hover:text-red-700 border border-transparent hover:border-gray-300 p-1 rounded focus:outline-blue-300 focus:outline-[1.5px]"
-        aria-label="Delete bookmark"
+        tabindex="-1"
+        title={bookmark.title}
       >
-        <X size={14} />
-      </button>
+        {bookmark.title}
+      </a>
     </div>
-  {/if}
-</bookmark>
+
+    <button
+      tabindex="0"
+      id="edit-icon"
+      class="ml-auto mr-1 opacity-60 hover:opacity-100 transition-opacity cursor-pointer"
+      onclick={() => {
+        isEditing = true;
+        tick().then(() => {
+          titleEditingElement?.focus();
+          titleEditingElement?.select();
+        });
+      }}
+    >
+      <EditIcon />
+    </button>
+
+    <div id="url-date" class="flex items-center">
+      <p
+        class="text-gray-400 w-fit font-semibold ml-2 flex-shrink-0 whitespace-nowrap"
+      >
+        {formatUkDate(bookmark.created_at)}
+      </p>
+    </div>
+  </bookmark>
+{/if}
 
 <style>
   .favicon {

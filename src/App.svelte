@@ -270,40 +270,32 @@
     };
   });
 
-  async function handleEditTitle(id: number, newTitle: string) {
+  async function handleEditBookmark(
+    id: number,
+    newTitle: string,
+    newUrl: string
+  ) {
+    console.log("editing bookmark:", id, newTitle, newUrl);
     const originalBookmarks = [...bookmarks];
     bookmarks = bookmarks.map((b) => {
       if (b.id === id) {
-        return { ...b, title: newTitle, updated_at: new Date().toISOString() };
+        return {
+          ...b,
+          title: newTitle,
+          url: newUrl,
+          updated_at: new Date().toISOString(),
+        };
       }
       return b;
     });
     try {
       const { error } = await supabase
         .from("bookmarks")
-        .update({ title: newTitle, updated_at: new Date().toISOString() })
-        .eq("id", id);
-      if (error) {
-        throw error;
-      }
-    } catch (error: any) {
-      console.error("failed to update bookmark:", error);
-      bookmarks = originalBookmarks;
-    }
-  }
-
-  async function handleEditUrl(id: number, newUrl: string) {
-    const originalBookmarks = [...bookmarks];
-    bookmarks = bookmarks.map((b) => {
-      if (b.id === id) {
-        return { ...b, url: newUrl, updated_at: new Date().toISOString() };
-      }
-      return b;
-    });
-    try {
-      const { error } = await supabase
-        .from("bookmarks")
-        .update({ url: newUrl, updated_at: new Date().toISOString() })
+        .update({
+          title: newTitle,
+          url: newUrl,
+          updated_at: new Date().toISOString(),
+        })
         .eq("id", id);
       if (error) {
         throw error;
@@ -656,8 +648,7 @@
               {bookmark}
               editing={editingBookmarks}
               onDelete={handleDelete}
-              onEditTitle={handleEditTitle}
-              onEditUrl={handleEditUrl}
+              onEditBookmark={handleEditBookmark}
             />
           {/each}
         {:else if searchInputValue.trim() !== ""}
