@@ -12,6 +12,7 @@
   import Folder from "./Folder.svelte";
   import { onMount, tick } from "svelte";
   import { createClient } from "@supabase/supabase-js";
+  import GithubFolder from "./GithubFolder.svelte";
 
   interface BookmarkType {
     id: number;
@@ -464,6 +465,7 @@
   }
 
   function selectFolder(id: number) {
+    isShowingGithubStars = false;
     currentSelectedFolderId = id;
   }
 
@@ -480,6 +482,19 @@
       console.error("delete failed:", error);
       folders = originalFolders;
     }
+  }
+
+  let isShowingGithubStars = $state(false);
+  function fetchGithubStars() {
+    isShowingGithubStars = !isShowingGithubStars;
+    fetch("https://api.github.com/users/nocdn/starred")
+      .then((response) => response.json())
+      .then((data) => {
+        console.log("Github stars:", data);
+      })
+      .catch((error) => {
+        console.error("Error fetching Github stars:", error);
+      });
   }
 </script>
 
@@ -585,6 +600,7 @@
           ondragleave={handleFolderDragLeave}
           class:bg-blue-50={dragOverFolderId === "uncategorized"}
           onmousedown={() => {
+            isShowingGithubStars = false;
             currentSelectedFolderId = null;
           }}
           ><Inbox
@@ -639,32 +655,39 @@
             + new folder
           {/if}
         </button>
+        <div class="mt-auto">
+          <GithubFolder onclick={fetchGithubStars} />
+        </div>
       </folders>
 
-      <div class="flex flex-col gap-2 overflow-y-auto">
-        {#if displayedBookmarks.length > 0}
-          {#each displayedBookmarks as bookmark (bookmark.id)}
-            <Bookmark
-              {bookmark}
-              editing={editingBookmarks}
-              onDelete={handleDelete}
-              onEditBookmark={handleEditBookmark}
-            />
-          {/each}
-        {:else if searchInputValue.trim() !== ""}
-          <p
-            class="text-gray-500 px-1 font-medium font-geist-mono motion-preset-blur-up-sm"
-          >
-            no bookmarks match your search in this folder.
-          </p>
-        {:else}
-          <p
-            class="text-gray-500 font-medium font-geist-mono px-1 flex items-center gap-2 motion-preset-blur-up-sm"
-          >
-            no bookmarks
-          </p>
-        {/if}
-      </div>
+      {#if !isShowingGithubStars}
+        <div id="bookmarks" class="flex flex-col gap-2 overflow-y-auto">
+          {#if displayedBookmarks.length > 0}
+            {#each displayedBookmarks as bookmark (bookmark.id)}
+              <Bookmark
+                {bookmark}
+                editing={editingBookmarks}
+                onDelete={handleDelete}
+                onEditBookmark={handleEditBookmark}
+              />
+            {/each}
+          {:else if searchInputValue.trim() !== ""}
+            <p
+              class="text-gray-500 px-1 font-medium font-geist-mono motion-preset-blur-up-sm"
+            >
+              no bookmarks match your search in this folder.
+            </p>
+          {:else}
+            <p
+              class="text-gray-500 font-medium font-geist-mono px-1 flex items-center gap-2 motion-preset-blur-up-sm"
+            >
+              no bookmarks
+            </p>
+          {/if}
+        </div>
+      {:else}
+        <p>github stars here</p>
+      {/if}
     </div>
   {/if}
 </main>
