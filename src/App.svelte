@@ -641,7 +641,7 @@
         </button>
       </folders>
 
-      <div class="flex flex-col gap-1 overflow-y-auto">
+      <div class="flex flex-col gap-2 overflow-y-auto">
         {#if displayedBookmarks.length > 0}
           {#each displayedBookmarks as bookmark (bookmark.id)}
             <Bookmark

@@ -83,11 +83,13 @@
   onMount(() => {
     const keydownHandler = (event: KeyboardEvent) => {
       if (event.key === "Alt") {
+        event.preventDefault();
         holdingOptionKey = true;
       }
     };
     const keyupHandler = (event: KeyboardEvent) => {
       if (event.key === "Alt") {
+        event.preventDefault();
         holdingOptionKey = false;
       }
     };
@@ -149,14 +151,10 @@
       return "Invalid Date";
     }
   }
-
-  $effect(() => {
-    console.log("activeElement", document.activeElement);
-  });
 </script>
 
 {#if isEditing}
-  <editing class="p-2 flex flex-col gap-2 border border-slate-200">
+  <editing class="p-3 flex flex-col gap-2 border border-slate-200 mb-3">
     <div class="group">
       <p
         class="text-sm font-jetbrains-mono font-medium text-gray-500 group-focus-within:text-blue-500"
@@ -272,20 +270,34 @@
       </a>
     </div>
 
-    <button
-      tabindex="0"
-      id="edit-icon"
-      class="ml-auto mr-1 opacity-60 hover:opacity-100 transition-opacity cursor-pointer"
-      onclick={() => {
-        isEditing = true;
-        tick().then(() => {
-          titleEditingElement?.focus();
-          titleEditingElement?.select();
-        });
-      }}
-    >
-      <EditIcon />
-    </button>
+    <div class="ml-auto flex items-center mr-1 gap-1.5">
+      <button
+        tabindex="0"
+        id="delete-icon"
+        class="opacity-0 {holdingOptionKey && hoveringBookmark
+          ? 'opacity-100'
+          : ''} transition-opacity cursor-pointer"
+        onclick={() => {
+          onDelete(bookmark.id);
+        }}
+      >
+        <X size={16} strokeWidth={2.5} color="red" />
+      </button>
+      <button
+        tabindex="0"
+        id="edit-icon"
+        class="opacity-45 hover:opacity-100 transition-opacity cursor-pointer"
+        onclick={() => {
+          isEditing = true;
+          tick().then(() => {
+            titleEditingElement?.focus();
+            titleEditingElement?.select();
+          });
+        }}
+      >
+        <EditIcon />
+      </button>
+    </div>
 
     <div id="url-date" class="flex items-center">
       <p
