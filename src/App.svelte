@@ -13,6 +13,7 @@
   import { onMount, tick } from "svelte";
   import { createClient } from "@supabase/supabase-js";
   import GithubFolder from "./GithubFolder.svelte";
+  import GithubStar from "./GithubStar.svelte";
 
   interface BookmarkType {
     id: number;
@@ -485,17 +486,28 @@
   }
 
   let isShowingGithubStars = $state(false);
+  let githubStars: Array<any> = $state([]);
+  let isFetchingGithubStars = $state(false);
   function fetchGithubStars() {
     isShowingGithubStars = !isShowingGithubStars;
+    isFetchingGithubStars = true;
     fetch("https://api.github.com/users/nocdn/starred")
       .then((response) => response.json())
       .then((data) => {
         console.log("Github stars:", data);
+        githubStars = data;
       })
       .catch((error) => {
         console.error("Error fetching Github stars:", error);
       });
   }
+
+  const exampleStarData = {
+    full_name: "example/repo",
+    homepage: "https://example.com",
+    stargazers_count: 149,
+    description: "This is an example star data.",
+  };
 </script>
 
 <main class="p-6 flex flex-col gap-3 font-jetbrains-mono min-h-screen">
@@ -686,7 +698,11 @@
           {/if}
         </div>
       {:else}
-        <p>github stars here</p>
+        <div class="max-w-full flex flex-col gap-2">
+          {#each githubStars as star (star.id)}
+            <GithubStar starData={star} />
+          {/each}
+        </div>
       {/if}
     </div>
   {/if}
