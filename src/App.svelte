@@ -14,6 +14,7 @@
   import { createClient } from "@supabase/supabase-js";
   import GithubFolder from "./GithubFolder.svelte";
   import GithubStar from "./GithubStar.svelte";
+  import TwitterFolder from "./TwitterFolder.svelte";
 
   interface BookmarkType {
     id: number;
@@ -502,15 +503,13 @@
       });
   }
 
-  const exampleStarData = {
-    full_name: "example/repo",
-    homepage: "https://example.com",
-    stargazers_count: 149,
-    description: "This is an example star data.",
-  };
+  let isShowingTwitterBookmarks = $state(false);
+  let isFetchingTwitterBookmarks = $state(false);
 </script>
 
-<main class="p-6 flex flex-col gap-3 font-jetbrains-mono min-h-screen">
+<main
+  class="p-6 flex flex-col gap-3 font-jetbrains-mono h-dvh overflow-y-hidden"
+>
   <header class="flex gap-2 items-center font-jetbrains-mono flex-shrink-0">
     <ArrowRight size="15" /> BOOKMARKS
     <button
@@ -613,6 +612,7 @@
           class:bg-blue-50={dragOverFolderId === "uncategorized"}
           onmousedown={() => {
             isShowingGithubStars = false;
+            isShowingTwitterBookmarks = false;
             currentSelectedFolderId = null;
           }}
           ><Inbox
@@ -668,11 +668,28 @@
           {/if}
         </button>
         <div class="mt-auto">
+          <TwitterFolder
+            onclick={() => {
+              isShowingGithubStars = false;
+              isShowingTwitterBookmarks = true;
+            }}
+          />
           <GithubFolder onclick={fetchGithubStars} />
         </div>
       </folders>
 
-      {#if !isShowingGithubStars}
+      {#if isShowingGithubStars}
+        <div
+          id="github-stars"
+          class="max-w-full flex flex-col gap-2 overflow-y-scroll"
+        >
+          {#each githubStars as star (star.id)}
+            <GithubStar starData={star} />
+          {/each}
+        </div>
+      {:else if isShowingTwitterBookmarks}
+        <p class="text-gray-500 font-bold">🚧 WORK IN PROGRESS</p>
+      {:else}
         <div id="bookmarks" class="flex flex-col gap-2 overflow-y-auto">
           {#if displayedBookmarks.length > 0}
             {#each displayedBookmarks as bookmark (bookmark.id)}
@@ -696,12 +713,6 @@
               no bookmarks
             </p>
           {/if}
-        </div>
-      {:else}
-        <div class="max-w-full flex flex-col gap-2">
-          {#each githubStars as star (star.id)}
-            <GithubStar starData={star} />
-          {/each}
         </div>
       {/if}
     </div>

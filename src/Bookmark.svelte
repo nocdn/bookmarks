@@ -239,7 +239,7 @@
       <img
         src={`https://www.google.com/s2/favicons?domain=${getDomain(bookmark.url)}&sz=32`}
         alt=""
-        class="favicon mr-2 flex-shrink-0 mb-0.5"
+        class="favicon mr-2 flex-shrink-0"
         width="14"
         height="14"
         loading="lazy"
@@ -276,7 +276,7 @@
         id="delete-icon"
         class="opacity-0 {holdingOptionKey && hoveringBookmark
           ? 'opacity-100'
-          : ''} transition-opacity cursor-pointer"
+          : ''} transition-opacity"
         onclick={() => {
           onDelete(bookmark.id);
         }}
