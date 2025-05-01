@@ -235,7 +235,10 @@
     ondragstart={handleDragStart}
     ondragend={handleDragEnd}
   >
-    <div id="img-title" class="flex items-center flex-shrink-0">
+    <div
+      id="img-title"
+      class="flex items-center flex-shrink-0 max-w-[84%] truncate"
+    >
       <img
         src={`https://www.google.com/s2/favicons?domain=${getDomain(bookmark.url)}&sz=32`}
         alt=""
@@ -248,7 +251,7 @@
 
       <a
         href={bookmark.url}
-        class="flex-grow flex-shrink min-w-0 max-w-full truncate font-[450] px-0.5 mr-auto outline-none {holdingOptionKey
+        class="flex-grow flex-shrink min-w-0 font-[450] px-0.5 mr-auto outline-none {holdingOptionKey
           ? 'cursor-text'
           : ''}"
         onclick={(e) => {
