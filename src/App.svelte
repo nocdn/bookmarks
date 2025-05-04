@@ -15,6 +15,7 @@
   import GithubFolder from "./GithubFolder.svelte";
   import GithubStar from "./GithubStar.svelte";
   import TwitterFolder from "./TwitterFolder.svelte";
+  import Spinner from "./Spinner.svelte";
 
   interface BookmarkType {
     id: number;
@@ -535,6 +536,9 @@
       >
         folder already exists
       </p>
+    {/if}
+    {#if isLoading}
+      <Spinner opacity={60} class="-translate-x-2" />
     {/if}
     <button
       disabled={isCreating}
