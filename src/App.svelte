@@ -59,6 +59,7 @@
   let newFolderColor = $state("rgb(0, 0, 0)");
   let showingLLMicon = $state(false);
   let duplicateFolderError = $state(false);
+  let expandedFolderIds: Array<number> = $state([]);
 
   const geminiApiKey = import.meta.env.VITE_GEMINI_API_KEY;
 
@@ -212,7 +213,6 @@
     }
     if (event.key === "Enter" && event.altKey) {
       event.preventDefault();
-      console.log("using LLM to get folder id");
       const value = searchInputValue.trim();
       if (value) {
         currentSelectedFolderId = await getLLMfolder(value);
@@ -289,7 +289,6 @@
     newTitle: string,
     newUrl: string
   ) {
-    console.log("editing bookmark:", id, newTitle, newUrl);
     const originalBookmarks = [...bookmarks];
     bookmarks = bookmarks.map((b) => {
       if (b.id === id) {
@@ -328,7 +327,6 @@
       return;
     }
     folders = data ?? [];
-    console.log("fetched folders:", folders);
   }
 
   async function moveBookmarkToFolder(
@@ -410,7 +408,6 @@
   async function openNewFolderInput() {
     isCreatingFolder = true;
     newFolderNameElement?.focus();
-    console.log("focusing new folder name input");
   }
 
   async function handleCreateFolder() {
@@ -425,9 +422,7 @@
         },
       ]);
     if (insertError) {
-      console.error("failed to create folder:", insertError);
       if (insertError.code === "23505") {
-        console.log("folder already exists");
         duplicateFolderError = true;
         newFolderName = "";
         setTimeout(() => {
@@ -436,7 +431,6 @@
       }
       return;
     }
-    console.log("created folder:", newFolderData);
     newFolderName = "";
     fetchFolders();
   }
@@ -480,7 +474,6 @@
       );
     }
     const data = await response.json();
-    console.log("gemini response:", data.choices[0].message.content);
     return parseInt(data.choices[0].message.content);
   }
 
@@ -490,17 +483,23 @@
     saveLastBookmarkId(id);
   }
 
+  function toggleFolderExpand(id: number) {
+    if (expandedFolderIds.includes(id)) {
+      expandedFolderIds = expandedFolderIds.filter((fid) => fid !== id);
+    } else {
+      expandedFolderIds = [...expandedFolderIds, id];
+    }
+  }
+
   async function handleDeleteFolder(id: number) {
     const originalFolders = [...folders];
     folders = folders.filter((f) => f.id !== id);
     try {
       const { error } = await supabase.from("folders").delete().match({ id });
       if (error) {
-        console.error("delete failed:", error);
         folders = originalFolders;
       }
     } catch (error: any) {
-      console.error("delete failed:", error);
       folders = originalFolders;
     }
   }
@@ -514,7 +513,6 @@
     fetch("https://api.github.com/users/nocdn/starred")
       .then((response) => response.json())
       .then((data) => {
-        console.log("Github stars:", data);
         githubStars = data;
       })
       .catch((error) => {
@@ -645,7 +643,8 @@
             isShowingTwitterBookmarks = false;
             currentSelectedFolderId = null;
           }}
-          ><Inbox
+        >
+          <Inbox
             size={16}
             strokeWidth={currentSelectedFolderId === null ? 3 : 2.5}
             class="text-gray-600"
@@ -657,7 +656,7 @@
           class="flex-grow overflow-y-auto min-h-0 py-1"
           style="scrollbar-width: thin; scrollbar-color: #F2F2F2 white;"
         >
-          {#each folders as folder (folder.id)}
+          {#each folders.filter((f) => f.parent_id === null) as folder (folder.id)}
             <Folder
               {folder}
               {currentSelectedFolderId}
@@ -668,6 +667,10 @@
               {handleFolderDragLeave}
               {selectFolder}
               onDeleteFolder={handleDeleteFolder}
+              allFolders={folders}
+              {expandedFolderIds}
+              {toggleFolderExpand}
+              level={0}
             />
           {/each}
         </div>
@@ -688,7 +691,6 @@
               bind:this={newFolderNameElement}
               onkeydown={(e) => {
                 if (e.key === "Enter") {
-                  console.log("creating folder with name:", newFolderName);
                   if (newFolderName.trim()) {
                     handleCreateFolder();
                   }

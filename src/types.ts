@@ -1,3 +1,4 @@
+// src/types.ts
 export interface BookmarkType {
   id: number;
   url: string;
@@ -14,4 +15,10 @@ export interface FolderType {
   name: string;
   parent_id: number | null;
   color: string;
+}
+
+export interface FolderNode {
+  folder: FolderType;
+  children: FolderNode[];
+  level: number;
 }

@@ -2,6 +2,7 @@
   import { Check, X } from "lucide-svelte";
   import FolderIcon from "./FolderIcon.svelte";
   import { onMount } from "svelte";
+  import Folder from "./Folder.svelte";
   let {
     folder,
     currentSelectedFolderId,
@@ -12,6 +13,10 @@
     handleFolderDragLeave,
     selectFolder,
     onDeleteFolder = (id: number) => {},
+    allFolders = [],
+    expandedFolderIds = [],
+    toggleFolderExpand = (id: number) => {},
+    level = 0,
   } = $props();
 
   let isAltDown = $state(false);
@@ -47,6 +52,12 @@
   function mouseleave() {
     isHovering = false;
   }
+
+  let childFolders = $derived(
+    allFolders.filter((f) => f.parent_id === folder.id)
+  );
+
+  const isExpanded = $derived(expandedFolderIds.includes(folder.id));
 </script>
 
 <div
@@ -56,13 +67,16 @@
   class="{currentSelectedFolderId === folder.id
     ? 'opacity-100'
     : ''} opacity-60 flex items-center gap-2 p-1.5 px-2.5 w-full text-left cursor-pointer transition-opacity"
+  style="padding-left: {level * 12 + 10}px; color: {folder.color || 'inherit'};"
   ondragover={handleDragOver}
   ondrop={(e) => handleDrop(e, folder.id)}
   ondragenter={() => handleFolderDragEnter(folder.id)}
   ondragleave={handleFolderDragLeave}
   class:bg-blue-50={dragOverFolderId === folder.id}
-  style="color: {folder.color || 'inherit'};"
-  onmousedown={() => selectFolder(folder.id)}
+  onmousedown={() => {
+    selectFolder(folder.id);
+    if (childFolders.length > 0) toggleFolderExpand(folder.id);
+  }}
   onmouseenter={mouseenter}
   onmouseleave={mouseleave}
 >
@@ -95,6 +109,26 @@
       class="{showingDeleteFolder
         ? 'opacity-100'
         : 'opacity-0'} transition-opacity"
-    /></button
-  >
+    />
+  </button>
 </div>
+
+{#if childFolders.length > 0 && isExpanded}
+  {#each childFolders as child (child.id)}
+    <Folder
+      folder={child}
+      {currentSelectedFolderId}
+      {dragOverFolderId}
+      {handleDragOver}
+      {handleDrop}
+      {handleFolderDragEnter}
+      {handleFolderDragLeave}
+      {selectFolder}
+      {onDeleteFolder}
+      {allFolders}
+      {expandedFolderIds}
+      {toggleFolderExpand}
+      level={level + 1}
+    />
+  {/each}
+{/if}
