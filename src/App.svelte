@@ -7,6 +7,7 @@
     Inbox,
     HeartCrack,
     Sparkles,
+    Command,
   } from "lucide-svelte";
   import Bookmark from "./Bookmark.svelte";
   import Folder from "./Folder.svelte";
@@ -60,6 +61,7 @@
   let showingLLMicon = $state(false);
   let duplicateFolderError = $state(false);
   let expandedFolderIds: Array<number> = $state([]);
+  let showingFolderCreationHint: boolean = $state(false);
 
   const geminiApiKey = import.meta.env.VITE_GEMINI_API_KEY;
 
@@ -408,17 +410,19 @@
   async function openNewFolderInput() {
     isCreatingFolder = true;
     newFolderNameElement?.focus();
+    showingFolderCreationHint = true;
   }
 
-  async function handleCreateFolder() {
+  async function handleCreateFolder(forceRoot: boolean = false) {
     isCreatingFolder = false;
+    const parentId = forceRoot ? null : currentSelectedFolderId;
     const { data: newFolderData, error: insertError } = await supabase
       .from("folders")
       .insert([
         {
           name: newFolderName,
           color: newFolderColor,
-          parent_id: null,
+          parent_id: parentId,
         },
       ]);
     if (insertError) {
@@ -683,24 +687,55 @@
           }}
         >
           {#if isCreatingFolder}
-            <input
-              type="text"
-              class="w-[80%] focus:outline-none font-medium bg-blue-50 placeholder:text-blue-300 p-1 px-2 -translate-x-1 text-black"
-              placeholder="new folder name"
-              bind:value={newFolderName}
-              bind:this={newFolderNameElement}
-              onkeydown={(e) => {
-                if (e.key === "Enter") {
-                  if (newFolderName.trim()) {
-                    handleCreateFolder();
+            <div class="flex flex-col gap-2 motion-preset-blur-up-sm">
+              <div class="flex flex-col gap-2 mb-1.5">
+                <div class="flex items-center gap-2">
+                  <Command
+                    size={10}
+                    strokeWidth={2.5}
+                    class="text-gray-600 bg-gray-100 rounded-sm p-1 w-5 h-5"
+                  /> +
+                  <div
+                    class="text-xs text-gray-600 font-jetbrains-mono rounded-sm bg-gray-100 px-1 py-0.5"
+                  >
+                    ENTER
+                  </div>
+                  <p class="text-xs inline-flex items-center font-medium">
+                    <ArrowRight size={12} strokeWidth={2.5} class="mr-2" /> root
+                  </p>
+                </div>
+
+                <div class="flex items-center gap-2">
+                  <div
+                    class="text-xs text-gray-600 font-jetbrains-mono rounded-sm bg-gray-100 px-1 py-0.5"
+                  >
+                    ENTER
+                  </div>
+                  <p class="text-xs inline-flex items-center font-medium">
+                    <ArrowRight size={12} strokeWidth={2.5} class="mr-2" /> nested
+                  </p>
+                </div>
+              </div>
+              <input
+                type="text"
+                class="w-[80%] focus:outline-none font-medium bg-blue-50 placeholder:text-blue-300 p-1 px-2 -translate-x-1 text-black"
+                placeholder="new folder name"
+                bind:value={newFolderName}
+                bind:this={newFolderNameElement}
+                onkeydown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    if (newFolderName.trim()) {
+                      handleCreateFolder(e.metaKey || e.ctrlKey);
+                    }
+                    isCreatingFolder = false;
+                  } else if (e.key === "Escape") {
+                    isCreatingFolder = false;
+                    newFolderName = "";
                   }
-                  isCreatingFolder = false;
-                } else if (e.key === "Escape") {
-                  isCreatingFolder = false;
-                  newFolderName = "";
-                }
-              }}
-            />
+                }}
+              />
+            </div>
           {:else}
             + new folder
           {/if}
