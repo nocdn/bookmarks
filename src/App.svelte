@@ -41,8 +41,8 @@
 
   const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-  let searchInputElement: HTMLInputElement;
-  let newFolderNameElement: HTMLInputElement;
+  let searchInputElement: HTMLInputElement | null = $state(null);
+  let newFolderNameElement: HTMLInputElement | null = $state(null);
   let searchInputValue: string = $state("");
   let bookmarks: Array<BookmarkType> = $state([]);
   let editingBookmarks: boolean = $state(false);
@@ -409,7 +409,7 @@
 
   async function openNewFolderInput() {
     isCreatingFolder = true;
-    newFolderNameElement.focus();
+    newFolderNameElement?.focus();
     console.log("focusing new folder name input");
   }
 

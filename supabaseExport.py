@@ -1,47 +1,45 @@
-from supabase import create_client
-from datetime import datetime
+import io
 import zipfile
-import os
+from datetime import datetime
+from flask import Flask, send_file
+from flask_cors import CORS
+from supabase import create_client
 
-now = datetime.now()
-formatted_date = now.strftime("%d-%m-%Y-%M-%H")
+app = Flask(__name__)
+CORS(app)
 
-url = "https://zglidwrsngurwotngzct.supabase.co"
-key = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpnbGlkd3Jzbmd1cndvdG5nemN0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDQxMTAzNTksImV4cCI6MjA1OTY4NjM1OX0.uLVaw_K83mybR3kuhSfJxM4EidTcXgdWYD6UbIoq6H0"
-supabase = create_client(url, key)
+# Supabase credentials
+SUPABASE_URL = "https://zglidwrsngurwotngzct.supabase.co"
+SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpnbGlkd3Jzbmd1cndvdG5nemN0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDQxMTAzNTksImV4cCI6MjA1OTY4NjM1OX0.uLVaw_K83mybR3kuhSfJxM4EidTcXgdWYD6UbIoq6H0"
 
-response_bookmarks = supabase.table("bookmarks").select("*").csv().execute()
-bookmarks_filename = f"bookmarks_{formatted_date}.csv"
+@app.route("/export", methods=["GET"])
+def export_data():
+    # 1) Build timestamp and filenames
+    now = datetime.now()
+    ts = now.strftime("%d-%m-%Y_%H-%M")
+    bookmarks_fname = f"bookmarks_{ts}.csv"
+    folders_fname   = f"folders_{ts}.csv"
+    zip_fname       = f"bookmarks_export_full_{ts}.zip"
 
-response_folders = supabase.table("folders").select("*").csv().execute()
-folders_filename = f"folders_{formatted_date}.csv"
+    # 2) Fetch CSV data strings from Supabase
+    supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
+    resp_bm = supabase.table("bookmarks").select("*").csv().execute()
+    resp_fd = supabase.table("folders")  .select("*").csv().execute()
 
-with open(bookmarks_filename, "w") as f:
-    f.write(response_bookmarks.data)
+    # 3) Create in-memory ZIP
+    memory_file = io.BytesIO()
+    with zipfile.ZipFile(memory_file, mode="w", compression=zipfile.ZIP_DEFLATED) as zf:
+        zf.writestr(bookmarks_fname, resp_bm.data or "")
+        zf.writestr(folders_fname,   resp_fd.data or "")
+    memory_file.seek(0)
 
-with open(folders_filename, "w") as f:
-    f.write(response_folders.data)
+    # 4) Return the ZIP as a downloadable file
+    return send_file(
+        memory_file,
+        mimetype="application/zip",
+        as_attachment=True,
+        download_name=zip_fname   # for Flask>=2.0; use attachment_filename=zip_fname on older versions
+    )
 
-files_to_zip = [bookmarks_filename, folders_filename]
-zip_filename = f"bookmarks_export_full_{formatted_date}.zip"
-
-try:
-    with zipfile.ZipFile(zip_filename, 'w') as zipf:
-        for file_path in files_to_zip:
-            if os.path.exists(file_path):
-                zipf.write(file_path, os.path.basename(file_path))
-                print(f"Added {file_path} to {zip_filename}")
-            else:
-                print(f"Warning: File '{file_path}' not found, skipping.")
-
-    print(f"\nSuccessfully created {zip_filename} containing {len(files_to_zip)} files.")
-    # delete the original files after zipping
-    for file_path in files_to_zip:
-        if os.path.exists(file_path):
-            os.remove(file_path)
-            print(f"Deleted original file: {file_path}")
-        else:
-            print(f"Warning: File '{file_path}' not found for deletion.")
-
-except Exception as e:
-    print(f"An error occurred when zipping: {e}")
+if __name__ == "__main__":
+    app.run(debug=True, port=4871)
