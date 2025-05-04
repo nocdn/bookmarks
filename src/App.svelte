@@ -69,6 +69,14 @@
     return text;
   }
 
+  function saveLastBookmarkId(id: number) {
+    localStorage.setItem("lastBookmarkId", id.toString());
+  }
+  function getLastBookmarkId(): number | null {
+    const lastBookmarkId = localStorage.getItem("lastBookmarkId");
+    return lastBookmarkId ? parseInt(lastBookmarkId, 10) : null;
+  }
+
   async function fetchBookmarks() {
     isLoading = true;
     fetchError = null;
@@ -268,6 +276,7 @@
     document.addEventListener("keydown", handleGlobalKeydown);
     fetchBookmarks();
     fetchFolders();
+    currentSelectedFolderId = getLastBookmarkId();
     return () => {
       document.removeEventListener("keydown", handleGlobalKeydown);
     };
@@ -398,7 +407,6 @@
 
   async function openNewFolderInput() {
     isCreatingFolder = true;
-    await tick();
     newFolderNameElement.focus();
     console.log("focusing new folder name input");
   }
@@ -469,6 +477,7 @@
   function selectFolder(id: number) {
     isShowingGithubStars = false;
     currentSelectedFolderId = id;
+    saveLastBookmarkId(id);
   }
 
   async function handleDeleteFolder(id: number) {
@@ -581,7 +590,7 @@
     <p class="text-red-500 text-sm mb-2 flex-shrink-0">{createError}</p>
   {/if}
   {#if isLoading}
-    <p class="flex-shrink-0">Loading bookmarks...</p>
+    <p class="flex-shrink-0 motion-translate-y-out-25 motion-opacity-out-0"></p>
   {:else if fetchError}
     <p class="text-red-600 flex-shrink-0">
       Error loading bookmarks: {fetchError}
@@ -599,12 +608,14 @@
       id="separated"
       class="grid grid-cols-[auto_1fr] gap-6 flex-grow min-h-0"
     >
-      <folders class="flex flex-col gap-1 font-medium flex-shrink-0 pr-4">
+      <folders
+        class="flex flex-col gap-1 font-medium flex-shrink-0 pr-4 motion-preset-blur-up-sm min-h-0"
+      >
         <button
           id="folder-uncategorized"
           class="{currentSelectedFolderId === null
             ? 'font-semibold opacity-100'
-            : ''} opacity-50 flex items-center gap-2 p-1.5 px-2.5 w-full text-left cursor-pointer transition-opacity"
+            : ''} opacity-50 flex items-center gap-2 p-1.5 px-2.5 w-full text-left cursor-pointer transition-opacity flex-shrink-0"
           ondragover={handleDragOver}
           ondrop={(e) => handleDrop(e, null)}
           ondragenter={() => handleFolderDragEnter("uncategorized")}
@@ -623,30 +634,36 @@
           Uncategorized
         </button>
 
-        {#each folders as folder (folder.id)}
-          <Folder
-            {folder}
-            {currentSelectedFolderId}
-            {dragOverFolderId}
-            {handleDragOver}
-            {handleDrop}
-            {handleFolderDragEnter}
-            {handleFolderDragLeave}
-            {selectFolder}
-            onDeleteFolder={handleDeleteFolder}
-          />
-        {/each}
+        <div
+          class="flex-grow overflow-y-auto min-h-0 py-1"
+          style="scrollbar-width: thin; scrollbar-color: #F2F2F2 white;"
+        >
+          {#each folders as folder (folder.id)}
+            <Folder
+              {folder}
+              {currentSelectedFolderId}
+              {dragOverFolderId}
+              {handleDragOver}
+              {handleDrop}
+              {handleFolderDragEnter}
+              {handleFolderDragLeave}
+              {selectFolder}
+              onDeleteFolder={handleDeleteFolder}
+            />
+          {/each}
+        </div>
+
         <button
           id="new-folder"
-          class="mr-auto p-1.5 px-2.5 pl-[12.5px] text-gray-500 hover:bg-gray-50 rounded-md flex items-center gap-2"
-          onclick={() => {
+          class="mr-auto p-1.5 px-2.5 pl-[12.5px] text-gray-500 rounded-md flex items-center gap-2 cursor-pointer flex-shrink-0"
+          onmousedown={() => {
             openNewFolderInput();
           }}
         >
           {#if isCreatingFolder}
             <input
               type="text"
-              class="w-full focus:outline-none font-medium"
+              class="w-[80%] focus:outline-none font-medium bg-blue-50 placeholder:text-blue-300 p-1 px-2 -translate-x-1 text-black"
               placeholder="new folder name"
               bind:value={newFolderName}
               bind:this={newFolderNameElement}
@@ -667,7 +684,7 @@
             + new folder
           {/if}
         </button>
-        <div class="mt-auto">
+        <div class="mt-auto flex-shrink-0">
           <TwitterFolder
             onclick={() => {
               isShowingGithubStars = false;
