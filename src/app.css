@@ -17,4 +17,24 @@
   --font-geist-mono: "Geist Mono", monospace;
   --font-geist: "Geist", sans-serif;
   --font-jetbrains-mono: "JetBrains Mono", monospace;
+
+  --animate-error-shake: error-shake 0.5s ease-in-out;
+
+  @keyframes error-shake {
+    0% {
+      transform: translateX(0);
+    }
+    25% {
+      transform: translateX(-2px);
+    }
+    50% {
+      transform: translateX(2px);
+    }
+    75% {
+      transform: translateX(-2px);
+    }
+    100% {
+      transform: translateX(0);
+    }
+  }
 }

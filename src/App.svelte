@@ -57,6 +57,7 @@
   let newFolderName = $state("");
   let newFolderColor = $state("rgb(0, 0, 0)");
   let showingLLMicon = $state(false);
+  let duplicateFolderError = $state(false);
 
   const geminiApiKey = import.meta.env.VITE_GEMINI_API_KEY;
 
@@ -424,6 +425,14 @@
       ]);
     if (insertError) {
       console.error("failed to create folder:", insertError);
+      if (insertError.code === "23505") {
+        console.log("folder already exists");
+        duplicateFolderError = true;
+        newFolderName = "";
+        setTimeout(() => {
+          duplicateFolderError = false;
+        }, 1000);
+      }
       return;
     }
     console.log("created folder:", newFolderData);
@@ -520,7 +529,13 @@
   class="p-6 flex flex-col gap-3 font-jetbrains-mono h-dvh overflow-y-hidden"
 >
   <header class="flex gap-2 items-center font-jetbrains-mono flex-shrink-0">
-    <ArrowRight size="15" /> BOOKMARKS
+    <ArrowRight size="15" /> BOOKMARKS {#if duplicateFolderError}
+      <p
+        class="text-red-700 font-medium motion-preset-focus-sm ml-3 animate-error-shake"
+      >
+        folder already exists
+      </p>
+    {/if}
     <button
       disabled={isCreating}
       onmousedown={() => (isAddingMultiple = !isAddingMultiple)}
