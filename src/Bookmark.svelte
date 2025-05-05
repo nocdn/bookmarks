@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { X } from "lucide-svelte";
+  import { X, Twitter } from "lucide-svelte";
   import { onMount, tick } from "svelte";
   import { on } from "svelte/events";
   import EditIcon from "./EditIcon.svelte";
@@ -224,7 +224,7 @@
   <bookmark
     class="flex items-center px-0.5 group max-w-full transition-opacity duration-150 {isDragging
       ? 'opacity-50'
-      : ''} font-geist-mono font-medium motion-preset-blur-up-sm overflow-hidden"
+      : ''} font-sf-pro-display tracking-[0.015em] text-black/75 font-medium motion-preset-blur-up-sm overflow-hidden"
     onmouseenter={() => (hoveringBookmark = true)}
     onmouseleave={() => (hoveringBookmark = false)}
     onfocusin={() => (hoveringBookmark = true)}
@@ -239,15 +239,27 @@
       id="img-title"
       class="flex items-center flex-shrink-0 max-w-[84%] truncate"
     >
-      <img
-        src={`https://www.google.com/s2/favicons?domain=${getDomain(bookmark.url)}&sz=32`}
-        alt=""
-        class="favicon mr-2 flex-shrink-0"
-        width="14"
-        height="14"
-        loading="lazy"
-        title={stripProtocol(bookmark.url)}
-      />
+      {#if bookmark.url.includes("x.com")}
+        <img
+          src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRJO2SeTQHtzL024EkApdOOoQ1QlTxBsqKCSQ&s"
+          alt=""
+          class="favicon mr-2 flex-shrink-0 -translate-y-[1px]"
+          width="14"
+          height="14"
+          loading="lazy"
+          title={stripProtocol(bookmark.url)}
+        />
+      {:else}
+        <img
+          src={`https://www.google.com/s2/favicons?domain=${getDomain(bookmark.url)}&sz=32`}
+          alt=""
+          class="favicon mr-2 flex-shrink-0"
+          width="14"
+          height="14"
+          loading="lazy"
+          title={stripProtocol(bookmark.url)}
+        />
+      {/if}
 
       <a
         href={bookmark.url}
@@ -304,7 +316,7 @@
 
     <div id="url-date" class="flex items-center">
       <p
-        class="text-gray-400 w-fit font-semibold ml-2 flex-shrink-0 whitespace-nowrap"
+        class="text-gray-400 w-fit font-jetbrains-mono text-sm font-medium ml-2 flex-shrink-0 whitespace-nowrap"
       >
         {formatUkDate(bookmark.created_at)}
       </p>
