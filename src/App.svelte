@@ -549,7 +549,6 @@
     const minutes = String(now.getMinutes()).padStart(2, "0"); // mm
 
     const filename = `bookmarks_export_full_${day}_${month}_${year}_${hours}-${minutes}.zip`;
-    // -----------------------------------
 
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
