@@ -224,7 +224,7 @@
   <bookmark
     class="flex items-center px-0.5 group max-w-full transition-opacity duration-150 {isDragging
       ? 'opacity-50'
-      : ''} font-sf-pro-display tracking-[0.015em] text-black/75 font-medium motion-preset-blur-up-sm overflow-hidden"
+      : ''} font-jetbrains-mono tracking-[0.015em] text-black/75 font-medium motion-preset-blur-up-sm overflow-hidden"
     onmouseenter={() => (hoveringBookmark = true)}
     onmouseleave={() => (hoveringBookmark = false)}
     onfocusin={() => (hoveringBookmark = true)}
@@ -263,7 +263,7 @@
 
       <a
         href={bookmark.url}
-        class="flex-grow flex-shrink min-w-0 font-[450] px-0.5 mr-auto outline-none {holdingOptionKey
+        class="flex-grow flex-shrink min-w-0 px-0.5 mr-auto outline-none {holdingOptionKey
           ? 'cursor-text'
           : ''}"
         onclick={(e) => {

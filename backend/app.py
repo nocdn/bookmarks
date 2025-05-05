@@ -12,7 +12,7 @@ CORS(app)
 SUPABASE_URL = "https://zglidwrsngurwotngzct.supabase.co"
 SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpnbGlkd3Jzbmd1cndvdG5nemN0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDQxMTAzNTksImV4cCI6MjA1OTY4NjM1OX0.uLVaw_K83mybR3kuhSfJxM4EidTcXgdWYD6UbIoq6H0"
 
-@app.route("/export", methods=["GET"])
+@app.route("/api/export", methods=["GET"])
 def export_data():
     # 1) Build timestamp and filenames
     now = datetime.now()

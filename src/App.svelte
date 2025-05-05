@@ -529,6 +529,39 @@
 
   let isShowingTwitterBookmarks = $state(false);
   let isFetchingTwitterBookmarks = $state(false);
+
+  async function downloadExport() {
+    const response = await fetch("/api/export");
+
+    if (!response.ok) {
+      console.error("Error fetching export:", response.statusText);
+      return;
+    }
+
+    const blob = await response.blob();
+
+    const now = new Date();
+
+    const day = String(now.getDate()).padStart(2, "0"); // dd
+    const month = String(now.getMonth() + 1).padStart(2, "0"); // mm (getMonth() is 0-indexed)
+    const year = now.getFullYear(); // yyyy
+    const hours = String(now.getHours()).padStart(2, "0"); // hh
+    const minutes = String(now.getMinutes()).padStart(2, "0"); // mm
+
+    const filename = `bookmarks_export_full_${day}_${month}_${year}_${hours}-${minutes}.zip`;
+    // -----------------------------------
+
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+
+    document.body.appendChild(a);
+    a.click();
+
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
 </script>
 
 <main
@@ -547,11 +580,21 @@
     {/if}
     <button
       disabled={isCreating}
-      onmousedown={() => (isAddingMultiple = !isAddingMultiple)}
+      onmousedown={() => {
+        console.log("exporting bookmarks and folders");
+        downloadExport();
+      }}
       class="ml-auto border border-gray-200 px-2.5 py-0.5 cursor-pointer hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
     >
+      EXPORT
+    </button>
+    <button
+      disabled={isCreating}
+      onmousedown={() => (isAddingMultiple = !isAddingMultiple)}
+      class="border border-gray-200 px-2.5 py-0.5 cursor-pointer hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
+    >
       {#if isAddingMultiple}
-        ADDING MULTIPLE
+        FINISH
       {:else}
         IMPORT
       {/if}
@@ -773,7 +816,10 @@
       {:else if isShowingTwitterBookmarks}
         <p class="text-gray-500 font-bold">🚧 WORK IN PROGRESS</p>
       {:else}
-        <div id="bookmarks" class="flex flex-col gap-2 overflow-y-auto">
+        <div
+          id="bookmarks"
+          class="flex flex-col gap-2 overflow-y-auto pt-[4px]"
+        >
           {#if displayedBookmarks.length > 0}
             {#each displayedBookmarks as bookmark (bookmark.id)}
               <Bookmark
