@@ -409,7 +409,9 @@
 
   async function openNewFolderInput() {
     isCreatingFolder = true;
-    newFolderNameElement?.focus();
+    setTimeout(() => {
+      newFolderNameElement?.focus();
+    }, 10);
     showingFolderCreationHint = true;
   }
 
@@ -518,6 +520,7 @@
       .then((response) => response.json())
       .then((data) => {
         githubStars = data;
+        isFetchingGithubStars = false;
       })
       .catch((error) => {
         console.error("Error fetching Github stars:", error);
@@ -539,7 +542,7 @@
         folder already exists
       </p>
     {/if}
-    {#if isLoading}
+    {#if isLoading || isFetchingGithubStars}
       <Spinner opacity={60} class="-translate-x-2" />
     {/if}
     <button
@@ -718,7 +721,7 @@
               </div>
               <input
                 type="text"
-                class="w-[80%] focus:outline-none font-medium bg-blue-50 placeholder:text-blue-300 p-1 px-2 -translate-x-1 text-black"
+                class="w-[80%] focus:outline-none font-medium font-geist-mono bg-blue-50/50 placeholder:text-blue-600/60 p-1 px-[7px] -translate-x-1 text-black"
                 placeholder="new folder name"
                 bind:value={newFolderName}
                 bind:this={newFolderNameElement}
@@ -734,10 +737,17 @@
                     newFolderName = "";
                   }
                 }}
+                onfocus={() => {
+                  newFolderNameElement?.select();
+                }}
+                onblur={() => {
+                  isCreatingFolder = false;
+                  newFolderName = "";
+                }}
               />
             </div>
           {:else}
-            + new folder
+            <p class="motion-preset-blur-up-sm">+ new folder</p>
           {/if}
         </button>
         <div class="mt-auto flex-shrink-0">

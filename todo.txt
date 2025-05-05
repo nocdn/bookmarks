@@ -1,1 +1,0 @@
-- pressing anywhere outside the new folder input element should close the input
