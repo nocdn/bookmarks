@@ -326,7 +326,6 @@ def bookmarks_in_folder(folder_id: int):
 def query_gemini(url: str):
     sb = get_supabase()
     folders = sb.table("folders").select("*").execute()
-    print(folders)
     response = client.chat.completions.create(
         model="gemini-2.5-flash-preview-04-17",
         messages=[

@@ -1,0 +1,5 @@
+:6731 {
+	root * /usr/share/caddy/html
+	file_server
+	encode zstd gzip
+}

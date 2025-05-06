@@ -3,3 +3,4 @@ Flask-CORS
 Supabase
 dotenv
 openai
+gunicorn
