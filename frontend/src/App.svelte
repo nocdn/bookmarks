@@ -36,11 +36,16 @@
     color: string;
   }
 
-  const supabaseUrl = "https://zglidwrsngurwotngzct.supabase.co";
-  const supabaseAnonKey =
-    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpnbGlkd3Jzbmd1cndvdG5nemN0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDQxMTAzNTksImV4cCI6MjA1OTY4NjM1OX0.uLVaw_K83mybR3kuhSfJxM4EidTcXgdWYD6UbIoq6H0";
+  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+  const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-  const supabase = createClient(supabaseUrl, supabaseAnonKey);
+  if (!supabaseUrl || !supabaseAnonKey) {
+    console.error(
+      "Supabase URL or Anon Key is not configured. Check your environment variables."
+    );
+  }
+
+  const supabase = createClient(supabaseUrl!, supabaseAnonKey!);
 
   let searchInputElement: HTMLInputElement | null = $state(null);
   let newFolderNameElement: HTMLInputElement | null = $state(null);

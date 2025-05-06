@@ -1,16 +1,18 @@
-# stage 1: build svelte+vite app w/ bun
 FROM oven/bun:alpine AS builder
 WORKDIR /app
+
+ARG VITE_SUPABASE_URL
+ARG VITE_SUPABASE_ANON_KEY
+
+ENV VITE_SUPABASE_URL=${VITE_SUPABASE_URL}
+ENV VITE_SUPABASE_ANON_KEY=${VITE_SUPABASE_ANON_KEY}
+
 COPY package.json bun.lock package-lock.json ./
-RUN bun install
+RUN bun install --frozen-lockfile
 COPY . .
 RUN bun run build
 
-# stage 2: serve app w/ caddy
 FROM caddy:latest
-# copy caddyfile
 COPY Caddyfile /etc/caddy/Caddyfile
-# copy built app to caddy html dir
 COPY --from=builder /app/dist /usr/share/caddy/html
-# expose caddy port
 EXPOSE 6731
