@@ -14,12 +14,14 @@ from flask import (
 )
 from flask_cors import CORS
 from supabase import create_client, Client
+from openai import OpenAI
 
 load_dotenv()
 
 SUPABASE_URL: str | None = os.getenv("SUPABASE_URL")
 SUPABASE_KEY: str | None = os.getenv("SUPABASE_KEY")
 ALLOW_ORIGIN: str | None = os.getenv("ALLOW_ORIGIN", "*")
+GEMINI_API_KEY: str | None = os.getenv("GEMINI_API_KEY")
 PORT: int = int(os.getenv("PORT", "4871"))
 
 if not SUPABASE_URL or not SUPABASE_KEY:
@@ -34,6 +36,10 @@ CORS(
     supports_credentials=False,
 )
 
+client = OpenAI(
+    api_key=GEMINI_API_KEY,
+    base_url="https://generativelanguage.googleapis.com/v1beta/openai/"
+)
 
 def get_supabase() -> Client:
     """
@@ -316,6 +322,22 @@ def bookmarks_in_folder(folder_id: int):
     request.args["folder_id"] = str(folder_id)
     return list_bookmarks()
 
+@app.route("/api/gemini/<url>", methods=["GET"])
+def query_gemini(url: str):
+    sb = get_supabase()
+    folders = sb.table("folders").select("*").execute()
+    print(folders)
+    response = client.chat.completions.create(
+        model="gemini-2.5-flash-preview-04-17",
+        messages=[
+            {"role": "system", "content": "Here is a list of folders in a bookmark manager app. You will be provided with a URL, and you will need to determine which folder this URL should be added to. You can also put links into subfolders if you think it's appropiate. You must ONLY return the folder id as your response - NOT IN A CODE BLOCK, NOT IN QUOTES, NOT IN ANY OTHER FORMAT, JUST THE FOLDER ID IN PLAIN TEXT - THIS IS VERY IMPORTANT. Here is the list of folders: " + str(folders)},
+            {
+                "role": "user",
+                "content": url
+            }
+        ]
+    )
+    return response.choices[0].message.content
 
 @app.route("/api/export", methods=["GET"])
 def export_zip():

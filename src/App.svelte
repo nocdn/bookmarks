@@ -63,8 +63,6 @@
   let expandedFolderIds: Array<number> = $state([]);
   let showingFolderCreationHint: boolean = $state(false);
 
-  const geminiApiKey = import.meta.env.VITE_GEMINI_API_KEY;
-
   function decodeHtmlEntities(text: string): string {
     if (typeof document !== "undefined") {
       const textarea = document.createElement("textarea");
@@ -140,7 +138,7 @@
         if (pageTitle.endsWith("/")) pageTitle = pageTitle.slice(0, -1);
         faviconRgbCodeString = "rgb(0, 0, 0)";
       }
-      getLLMfolder(url);
+      const folderId = await getLLMfolder(url);
       const { data: newBookmarkData, error: insertError } = await supabase
         .from("bookmarks")
         .insert([
@@ -150,7 +148,7 @@
             faviconColor: faviconRgbCodeString,
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
-            folder_id: currentSelectedFolderId,
+            folder_id: folderId,
           },
         ])
         .select()
@@ -442,32 +440,8 @@
   }
 
   async function getLLMfolder(link: string) {
-    const foldersString = JSON.stringify(
-      folders.map((f) => ({ id: f.id, name: f.name })),
-      null,
-      2
-    );
-    const systemPrompt = `The user will provide a url, then you will respond with JUST the id of the folder you think it should go into. Respond with no formatting, no markdown, no quotes, just the folder ID as the text. The available folders and folder ID's:\n${foldersString}`;
-
     const response = await fetch(
-      "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${geminiApiKey}`,
-        },
-        body: JSON.stringify({
-          model: "gemini-2.0-flash",
-          messages: [
-            {
-              role: "system",
-              content: systemPrompt,
-            },
-            { role: "user", content: link },
-          ],
-        }),
-      }
+      `/api/gemini/${link.replace(/^https?:\/\//, "")}`
     );
 
     if (!response.ok) {
@@ -480,7 +454,7 @@
       );
     }
     const data = await response.json();
-    return parseInt(data.choices[0].message.content);
+    return parseInt(data);
   }
 
   function selectFolder(id: number) {
@@ -574,8 +548,8 @@
         folder already exists
       </p>
     {/if}
-    {#if isLoading || isFetchingGithubStars}
-      <Spinner opacity={60} class="-translate-x-2" />
+    {#if isLoading || isFetchingGithubStars || isFetchingTwitterBookmarks || isCreating}
+      <Spinner opacity={60} class="-translate-x-1" />
     {/if}
     <button
       disabled={isCreating}
@@ -666,10 +640,6 @@
       No bookmarks found. Paste a URL and press Enter to add one.
     </p>
   {:else}
-    {#if isCreating && !createError}
-      <p class="flex-shrink-0">Adding bookmark...</p>
-    {/if}
-
     <div
       id="separated"
       class="grid grid-cols-[auto_1fr] gap-6 flex-grow min-h-0"

@@ -224,7 +224,7 @@
   <bookmark
     class="flex items-center px-0.5 group max-w-full transition-opacity duration-150 {isDragging
       ? 'opacity-50'
-      : ''} font-jetbrains-mono tracking-[0.015em] text-black/75 font-medium motion-preset-blur-up-sm overflow-hidden"
+      : ''} font-jetbrains-mono text-black/75 font-medium motion-preset-blur-up-sm overflow-hidden mb-1"
     onmouseenter={() => (hoveringBookmark = true)}
     onmouseleave={() => (hoveringBookmark = false)}
     onfocusin={() => (hoveringBookmark = true)}
@@ -265,7 +265,7 @@
         href={bookmark.url}
         class="flex-grow flex-shrink min-w-0 px-0.5 mr-auto outline-none {holdingOptionKey
           ? 'cursor-text'
-          : ''}"
+          : ''} text-[15px]"
         onclick={(e) => {
           if (holdingOptionKey) {
             e.preventDefault();
