@@ -678,7 +678,7 @@
 
         <div
           class="flex-grow overflow-y-auto min-h-0 py-1"
-          style="scrollbar-width: thin; scrollbar-color: #F2F2F2 white;"
+          style="scrollbar-width: thin; scrollbar-color: #F2F2F2 white; padding-bottom: 1.5rem;"
         >
           {#each folders.filter((f) => f.parent_id === null) as folder (folder.id)}
             <Folder
@@ -701,11 +701,16 @@
 
         <button
           id="new-folder"
-          class="mr-auto p-1.5 px-2.5 pl-[12.5px] text-gray-500 rounded-md flex items-center gap-2 cursor-pointer flex-shrink-0"
+          class="mr-auto p-1.5 px-2.5 pl-[12.5px] text-gray-500 rounded-md flex items-center gap-2 cursor-pointer flex-shrink-0 relative"
           onmousedown={() => {
             openNewFolderInput();
           }}
         >
+          <div
+            id="new-folder-gradient"
+            class="absolute w-58 bottom-8 left-0 right-0 h-12 bg-gradient-to-t from-white via-white to-transparent pointer-events-none"
+            style="width: {newFolderNameElement?.clientWidth}px;"
+          ></div>
           {#if isCreatingFolder}
             <div class="flex flex-col gap-2 motion-preset-blur-up-sm">
               <div class="flex flex-col gap-2 mb-1.5">

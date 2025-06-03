@@ -17,6 +17,7 @@
     expandedFolderIds = [],
     toggleFolderExpand = (id: number) => {},
     level = 0,
+    staggerIndex = 0,
   } = $props();
 
   let isAltDown = $state(false);
@@ -69,7 +70,8 @@
   class="{currentSelectedFolderId === folder.id
     ? 'opacity-100'
     : ''} opacity-60 flex items-center gap-2 p-1.5 px-2.5 w-full text-left cursor-pointer transition-opacity motion-preset-focus-sm"
-  style="padding-left: {level * 12 + 10}px; color: {folder.color || 'inherit'};"
+  style="padding-left: {level * 12 + 10}px; color: {folder.color ||
+    'inherit'}; animation-delay: {staggerIndex * 30}ms;"
   ondragover={handleDragOver}
   ondrop={(e) => handleDrop(e, folder.id)}
   ondragenter={() => handleFolderDragEnter(folder.id)}
@@ -119,7 +121,7 @@
 </div>
 
 {#if childFolders.length > 0 && isExpanded}
-  {#each childFolders as child (child.id)}
+  {#each childFolders as child, i (child.id)}
     <Folder
       folder={child}
       {currentSelectedFolderId}
@@ -134,6 +136,7 @@
       {expandedFolderIds}
       {toggleFolderExpand}
       level={level + 1}
+      staggerIndex={i}
     />
   {/each}
 {/if}
