@@ -47,7 +47,8 @@
 
   const supabase = createClient(supabaseUrl!, supabaseAnonKey!);
 
-  let searchInputElement: HTMLInputElement | null = $state(null);
+  let searchInputElement: HTMLInputElement | HTMLTextAreaElement | null =
+    $state(null);
   let newFolderNameElement: HTMLInputElement | null = $state(null);
   let searchInputValue: string = $state("");
   let bookmarks: Array<BookmarkType> = $state([]);
@@ -276,7 +277,7 @@
         ) {
           event.preventDefault();
           searchInputElement?.focus();
-          searchInputElement?.select();
+          (searchInputElement as HTMLInputElement)?.select();
         }
       }
     };
@@ -462,11 +463,34 @@
     return parseInt(data);
   }
 
+  function getParentFolderIds(folderId: number): number[] {
+    const parentIds: number[] = [];
+    let currentFolder = folders.find((f) => f.id === folderId);
+
+    while (currentFolder && currentFolder.parent_id !== null) {
+      parentIds.push(currentFolder.parent_id);
+      currentFolder = folders.find((f) => f.id === currentFolder!.parent_id);
+    }
+
+    return parentIds;
+  }
+
   function selectFolder(id: number) {
     isShowingGithubStars = false;
     currentSelectedFolderId = id;
     saveLastBookmarkId(id);
-    expandedFolderIds = [];
+
+    const parentIds = getParentFolderIds(id);
+
+    expandedFolderIds = expandedFolderIds.filter(
+      (folderId) => parentIds.includes(folderId) || folderId === id
+    );
+
+    parentIds.forEach((parentId) => {
+      if (!expandedFolderIds.includes(parentId)) {
+        expandedFolderIds = [...expandedFolderIds, parentId];
+      }
+    });
   }
 
   function toggleFolderExpand(id: number) {
