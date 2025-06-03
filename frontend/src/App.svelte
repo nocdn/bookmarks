@@ -466,6 +466,7 @@
     isShowingGithubStars = false;
     currentSelectedFolderId = id;
     saveLastBookmarkId(id);
+    expandedFolderIds = [];
   }
 
   function toggleFolderExpand(id: number) {
@@ -666,6 +667,7 @@
             isShowingGithubStars = false;
             isShowingTwitterBookmarks = false;
             currentSelectedFolderId = null;
+            expandedFolderIds = [];
           }}
         >
           <Inbox
