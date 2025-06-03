@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Check, X } from "lucide-svelte";
+  import { Check, ChevronRight, X } from "lucide-svelte";
   import FolderIcon from "./FolderIcon.svelte";
   import { onMount } from "svelte";
   import Folder from "./Folder.svelte";
@@ -57,6 +57,8 @@
     allFolders.filter((f) => f.parent_id === folder.id)
   );
 
+  let hasChildFolders = $derived(childFolders.length > 0);
+
   const isExpanded = $derived(expandedFolderIds.includes(folder.id));
 </script>
 
@@ -66,7 +68,7 @@
   tabindex="0"
   class="{currentSelectedFolderId === folder.id
     ? 'opacity-100'
-    : ''} opacity-60 flex items-center gap-2 p-1.5 px-2.5 w-full text-left cursor-pointer transition-opacity"
+    : ''} opacity-60 flex items-center gap-2 p-1.5 px-2.5 w-full text-left cursor-pointer transition-opacity motion-preset-focus-sm"
   style="padding-left: {level * 12 + 10}px; color: {folder.color || 'inherit'};"
   ondragover={handleDragOver}
   ondrop={(e) => handleDrop(e, folder.id)}
@@ -84,6 +86,9 @@
     fillColor={currentSelectedFolderId === folder.id ? "#F0F0F0" : "none"}
   />
   {folder.name}
+  {#if hasChildFolders}
+    <ChevronRight size={14} class={isExpanded ? "rotate-90" : ""} />
+  {/if}
   <button class="ml-auto inline-flex items-center gap-0.5">
     <Check
       size={14}
