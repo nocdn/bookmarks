@@ -69,7 +69,7 @@
   tabindex="0"
   class="{currentSelectedFolderId === folder.id
     ? 'opacity-100'
-    : ''} opacity-60 flex items-center gap-2 p-1.5 px-2.5 w-full text-left cursor-pointer transition-opacity motion-preset-focus-sm"
+    : ''} opacity-45 flex items-center gap-2 p-1.5 px-2.5 w-full text-left cursor-pointer transition-opacity motion-preset-focus-sm"
   style="padding-left: {level * 12 + 10}px; color: {folder.color ||
     'inherit'}; animation-delay: {staggerIndex * 30}ms;"
   ondragover={handleDragOver}

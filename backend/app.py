@@ -15,6 +15,16 @@ from flask import (
 from flask_cors import CORS
 from supabase import create_client, Client
 from openai import OpenAI
+import requests
+import re
+import tempfile
+from urllib.parse import urlparse
+
+try:
+    from colorthief import ColorThief
+    HAS_COLORTHIEF = True
+except ImportError:
+    HAS_COLORTHIEF = False
 
 load_dotenv()
 
@@ -83,8 +93,8 @@ def parse_pagination() -> tuple[int, int, int, int]:
 
 def handle_sb_error(resp):
     """
-    Supabase-py 2.x doesn’t expose .error on every response object
-    (e.g. CSV responses).  Use getattr so we don’t blow up when it is
+    Supabase-py 2.x doesn't expose .error on every response object
+    (e.g. CSV responses).  Use getattr so we don't blow up when it is
     missing.  If your library version still has .error we behave the
     same as before.
     """
@@ -366,6 +376,78 @@ def export_zip():
         as_attachment=True,
         download_name=f"bookmark_export_{ts}.zip",
     )
+
+
+@app.route("/api/title", methods=["GET"])
+def fetch_title():
+    """
+    GET /api/title?url=...
+    Fetches the title of a webpage and extracts the dominant color from its favicon.
+    Returns: {"title": "...", "faviconColor": [r, g, b] or null}
+    """
+    url = request.args.get("url")
+    if not url:
+        abort(400, "url parameter is required")
+    
+    # Add https:// if no protocol specified
+    if not url.startswith("http://") and not url.startswith("https://"):
+        url = f"https://{url}"
+    
+    # Define user agent
+    headers = {
+        "User-Agent": "Mozilla/5.0 (compatible; BookmarkAppBot/1.0)"
+    }
+    
+    try:
+        # Fetch the webpage
+        response = requests.get(url, headers=headers, timeout=10, allow_redirects=True)
+        response.raise_for_status()
+        
+        # Extract title using regex
+        title_match = re.search(r'<title[^>]*>(.*?)</title>', response.text, re.IGNORECASE | re.DOTALL)
+        title = title_match.group(1).strip() if title_match else ""
+        
+        # Initialize favicon color
+        favicon_color = None
+        
+        # Try to fetch favicon and extract color
+        if HAS_COLORTHIEF:
+            try:
+                parsed_url = urlparse(url)
+                favicon_url = f"{parsed_url.scheme}://{parsed_url.netloc}/favicon.ico"
+                
+                favicon_response = requests.get(favicon_url, headers=headers, timeout=5)
+                if favicon_response.status_code == 200:
+                    # Use a temporary file for ColorThief
+                    with tempfile.NamedTemporaryFile(suffix=".ico", delete=False) as tmp_file:
+                        tmp_file.write(favicon_response.content)
+                        tmp_file_path = tmp_file.name
+                    
+                    try:
+                        ct = ColorThief(tmp_file_path)
+                        dominant_color = ct.get_color(quality=1)
+                        favicon_color = list(dominant_color)  # Convert tuple to list
+                    finally:
+                        # Clean up temp file
+                        os.unlink(tmp_file_path)
+                        
+            except Exception as e:
+                # Silently ignore favicon/color extraction errors
+                pass
+        
+        return jsonify({
+            "title": title,
+            "faviconColor": favicon_color
+        }), 200
+        
+    except requests.RequestException as e:
+        error_type = type(e).__name__
+        if isinstance(e, requests.HTTPError):
+            abort(500, f"Failed to fetch URL: received status {e.response.status_code}")
+        else:
+            abort(500, f"Failed to fetch URL: network error - {error_type}")
+    except Exception as e:
+        abort(500, f"An internal server error occurred: {type(e).__name__}")
 
 
 if __name__ == "__main__":

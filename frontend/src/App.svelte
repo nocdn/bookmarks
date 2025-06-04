@@ -107,7 +107,7 @@
     }
   }
 
-  async function createBookmark(url: string) {
+  async function createBookmark(url: string, useLLMForFolder: boolean) {
     if (!url.startsWith("http://") && !url.startsWith("https://")) {
       url = `https://${url}`;
     }
@@ -118,7 +118,7 @@
       let faviconColor = "";
       let faviconRgbCodeString = "";
       try {
-        const proxyUrl = `http://84.8.144.162:8030/api/fetch-title?url=${encodeURIComponent(url)}`;
+        const proxyUrl = `/api/title?url=${encodeURIComponent(url)}`;
         const response = await fetch(proxyUrl);
         if (!response.ok) {
           const errorData = await response
@@ -144,7 +144,14 @@
         if (pageTitle.endsWith("/")) pageTitle = pageTitle.slice(0, -1);
         faviconRgbCodeString = "rgb(0, 0, 0)";
       }
-      const folderId = await getLLMfolder(url);
+
+      let folderIdToAssign: number | null;
+      if (useLLMForFolder) {
+        folderIdToAssign = await getLLMfolder(url);
+      } else {
+        folderIdToAssign = currentSelectedFolderId;
+      }
+
       const { data: newBookmarkData, error: insertError } = await supabase
         .from("bookmarks")
         .insert([
@@ -154,7 +161,7 @@
             faviconColor: faviconRgbCodeString,
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
-            folder_id: folderId,
+            folder_id: folderIdToAssign,
           },
         ])
         .select()
@@ -203,20 +210,23 @@
   async function handleSearchInputKeydown(event: KeyboardEvent) {
     if (event.key === "Enter" && !event.shiftKey) {
       event.preventDefault();
+      const useLLM = event.altKey; // Check if Alt key is pressed
+
       if (isAddingMultiple) {
         const values = searchInputValue.split("\n");
         values.forEach((value) => {
           if (value.trim()) {
-            createBookmark(value.trim());
+            createBookmark(value.trim(), useLLM); // Pass useLLM status
           }
         });
       } else {
         const value = searchInputValue.trim();
         if (value) {
-          createBookmark(value);
+          createBookmark(value, useLLM); // Pass useLLM status
         }
       }
     }
+    // Handles Alt+Enter specifically for setting the current folder
     if (event.key === "Enter" && event.altKey) {
       event.preventDefault();
       const value = searchInputValue.trim();
@@ -675,7 +685,7 @@
       class="grid grid-cols-[auto_1fr] gap-6 flex-grow min-h-0"
     >
       <folders
-        class="flex flex-col gap-1 font-medium flex-shrink-0 pr-4 motion-preset-blur-up-sm min-h-0"
+        class="flex flex-col gap-1 font-medium flex-shrink-0 motion-preset-blur-up-sm min-h-0 bg-gray-50 p-1.5"
       >
         <button
           id="folder-uncategorized"
@@ -732,11 +742,11 @@
             openNewFolderInput();
           }}
         >
-          <div
+          <!-- <div
             id="new-folder-gradient"
             class="absolute w-58 bottom-8 left-0 right-0 h-12 bg-gradient-to-t from-white via-white to-transparent pointer-events-none"
             style="width: {newFolderNameElement?.clientWidth}px;"
-          ></div>
+          ></div> -->
           {#if isCreatingFolder}
             <div class="flex flex-col gap-2 motion-preset-blur-up-sm">
               <div class="flex flex-col gap-2 mb-1.5">
